@@ -1,0 +1,17 @@
+# .flake8
+[flake8]
+max-line-length = 88
+
+# Ignore rules (with comments outside the list)
+# E203: whitespace before ':' (needed for Black compatibility)
+# W503: line break before binary operator
+extend-ignore = E203, W503
+ignore = E501,D202
+
+exclude =
+    .venv,
+    .git,
+    __pycache__,
+    build,
+    dist,
+    tests
