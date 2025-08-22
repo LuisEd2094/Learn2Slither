@@ -1,5 +1,6 @@
 import pygame
-from ..snake_game.SnakeGame import SnakeGame, Direction
+
+from ..snake_game.SnakeGame import Direction, SnakeGame
 
 
 def play_game(use_box=True):
@@ -7,9 +8,11 @@ def play_game(use_box=True):
     cell_size = 30
     game = SnakeGame(10, 10)
     # PYGAME needs a display to capture the keyboard inputs
-    screen = pygame.display.set_mode((1, 1)) if not use_box else pygame.display.set_mode(
-            (game.width * cell_size, game.height * cell_size)
-        )    
+    screen = (
+        pygame.display.set_mode((1, 1))
+        if not use_box
+        else pygame.display.set_mode((game.width * cell_size, game.height * cell_size))
+    )
     clock = pygame.time.Clock()
 
     running = True
@@ -43,7 +46,9 @@ def play_game(use_box=True):
             grid = game.get_state()
             for y in range(game.height):
                 for x in range(game.width):
-                    rect = pygame.Rect(x * cell_size, y * cell_size, cell_size, cell_size)
+                    rect = pygame.Rect(
+                        x * cell_size, y * cell_size, cell_size, cell_size
+                    )
                     if grid[y][x] == 1:
                         pygame.draw.rect(screen, (0, 200, 0), rect)
                     elif grid[y][x] == 2:
@@ -55,8 +60,8 @@ def play_game(use_box=True):
             text = font.render(f"Size: {len(game.snake)}", True, (255, 255, 255))
             screen.blit(text, (game.width * cell_size - text.get_width() - 5, 5))
             pygame.display.flip()
-        
-        game.render_snake_view()
+
+        game.render_terminal()
         clock.tick(5)
 
     pygame.quit()
