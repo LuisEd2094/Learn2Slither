@@ -1,12 +1,18 @@
+import copy
+
 import pygame
+from snake_ai import choose_direction
 
 from ..snake_game.SnakeGame import Direction, SnakeGame
 
+GAME = SnakeGame(10, 10)
 
-def play_game(use_box=True):
+
+def play_game_user(use_box=True):
     pygame.init()
     cell_size = 30
-    game = SnakeGame(10, 10)
+    # Get copy of initial game state
+    game = copy.deepcopy(GAME)
     # PYGAME needs a display to capture the keyboard inputs
     screen = (
         pygame.display.set_mode((1, 1))
@@ -63,9 +69,29 @@ def play_game(use_box=True):
 
         game.render_terminal()
         clock.tick(5)
-
     pygame.quit()
 
 
+def get_direction_ai(snake_view):
+    dx, dy = choose_direction(snake_view)
+    for d in Direction:
+        if d.value == (dx, dy):
+            direction = d
+            break
+
+    return direction
+
+
+def play_game_ai():
+    game = copy.deepcopy(GAME)
+    while not game.game_over:
+        snake_view = game.get_snake_view()
+        direction = get_direction_ai(snake_view)
+        game.set_direction(direction)
+        game.step()
+        game.render_terminal()
+
+
 if __name__ == "__main__":
-    play_game(True)
+    # play_game_user(True)
+    play_game_ai()

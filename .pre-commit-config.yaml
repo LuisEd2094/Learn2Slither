@@ -16,4 +16,14 @@ repos:
     hooks:
       - id: flake8
         exclude: ^tests/
+  - repo: local
+    hooks:
+      - id: rustfmt
+        name: rustfmt
+        entry: bash -c "cd src/Rust && find . -name '*.rs' -exec rustfmt --edition 2021 {} +"
+        language: system
 
+      - id: cargo-clippy
+        name: cargo-clippy
+        entry: bash -c "cd src/Rust && cargo clippy --all-targets --all-features -- -D warnings"
+        language: system
