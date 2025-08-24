@@ -42,6 +42,8 @@ class Learn2Slither:
             self.visuals = True
         if self.visuals:
             self._init_pygame()
+        if self.human_speed and not self.visuals:
+            self.clock = pygame.time.Clock()
 
     def run(self):
         self._run_game()
