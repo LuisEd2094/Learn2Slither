@@ -10,6 +10,57 @@ class Direction(Enum):
 
 
 class SnakeGame:
+    """
+    A grid-based Snake game environment with two types of apples:
+    - Green apple (normal growth).
+    - Red apple (shrinks the snake by one segment, or ends the game if too short).
+
+    The snake starts at a random valid position and grows/shrinks depending on
+    apples consumed. The game ends if the snake collides with itself or the wall.
+
+    Attributes
+    ----------
+    width : int
+        Width of the board (minimum 10).
+    height : int
+        Height of the board (minimum 10).
+    snake : list[tuple[int, int]]
+        The snake body, stored as a list of (x, y) coordinates with the head first.
+    direction : Direction
+        Current direction of movement.
+    pending_direction : Direction
+        Buffered direction to apply on the next step (used to prevent instant reversals).
+    green_apple : tuple[int, int]
+        Position of the green apple (normal food).
+    red_apple : tuple[int, int]
+        Position of the red apple (shrinks snake).
+    grid : list[list[int]]
+        2D grid representing the game state:
+            0 = empty
+            1 = snake
+            2 = green apple
+            3 = red apple
+    game_over : bool
+        Whether the game has ended.
+
+    Methods
+    -------
+    reset()
+        Reset the board and place the snake in a valid random position.
+    spawn_apples()
+        Spawn both a green and a red apple in random empty cells.
+    set_direction(new_direction)
+        Queue a new direction for the snake (ignores 180-degree turns).
+    step()
+        Advance the grid by one tick, updating snake position, apple, and game state.
+    get_state() -> list[list[int]]
+        Return the raw integer grid state.
+    get_snake_view() -> list[list[str]]
+        Return a 2D view showing the snake's line of sight (row + column with walls).
+    render_terminal()
+        Print the snake's line of sight to the terminal for debugging.
+    """
+
     def __init__(self, width=10, height=10):
         if width < 10 or height < 10:
             raise ValueError("Width and height must be at least 10.")
