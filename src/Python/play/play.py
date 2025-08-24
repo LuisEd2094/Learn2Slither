@@ -82,12 +82,16 @@ def get_direction_ai(snake_view):
     return direction
 
 
+def _set_next_move_ai(game):
+    snake_view = game.get_snake_view()
+    direction = get_direction_ai(snake_view)
+    game.set_direction(direction)
+
+
 def play_game_ai():
     game = copy.deepcopy(GAME)
     while not game.game_over:
-        snake_view = game.get_snake_view()
-        direction = get_direction_ai(snake_view)
-        game.set_direction(direction)
+        _set_next_move_ai(game)
         game.step()
         game.render_terminal()
 
