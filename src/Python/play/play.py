@@ -96,6 +96,7 @@ def play_game_ai():
         game.render_terminal()
 
 
+
 if __name__ == "__main__":
     # play_game_user(True)
     play_game_ai()
