@@ -152,6 +152,20 @@ class SnakeGame:
         """Return the current heading direction of the snake."""
         return self.direction.value
 
+    def get_green_apple(self):
+        """Return the current position of the green apple."""
+        return self.green_apple
+
+    def get_snake_head(self):
+        """Return the current head position of the snake."""
+        return self.snake[0] if self.snake else None
+
+    def get_snake_len(self):
+        return len(self.snake)
+
+    def get_done(self):
+        return self.game_over
+
     def set_direction(self, new_direction: Direction):
         """Change snake direction, ignoring 180-degree reversals."""
         if (

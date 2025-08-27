@@ -44,8 +44,13 @@ class Learn2Slither:
             self._init_pygame()
         if self.human_speed and not self.visuals:
             self.clock = pygame.time.Clock()
+        self.dx, self.dy = 0.0, 0.0
         snake_ai.init(
-            alpha=0.2, gamma=0.95, epsilon=1.0, epsilon_min=0.05, epsilon_decay=0.999
+            alpha=0.5,
+            gamma=0.95,
+            epsilon=1.0,
+            epsilon_min=0.1,
+            epsilon_decay=0.999,
         )
 
     def run(self):
@@ -103,11 +108,81 @@ class Learn2Slither:
         )
         pygame.display.flip()
 
+    def _learn(
+        self,
+        prev_view,
+        prev_heading,
+        action,
+        reward,
+        new_view,
+        new_heading,
+        done,
+    ):
+        # Implement learning logic here
+
+        snake_ai.learn(
+            prev_view,
+            prev_heading,
+            action,
+            reward,
+            new_view,
+            new_heading,
+            done,
+        )
+
     def _run_game(self):
         current_run = 0
         while current_run < self.sessions:
+            # Get previous state information before AI moves
+            if self.learn:
+                prev_view = self.main_game.get_snake_view()
+                prev_heading = self.main_game.get_heading()
+                prev_len = self.main_game.get_snake_len()
+                prev_head_x, prev_head_y = self.main_game.get_snake_head()
+
+            # Set next move for the AI in the game
             self._set_next_move_ai(self.main_game)
+
+            # Run the next move
             self.main_game.step()
+
+            done = self.main_game.get_done()
+
+            if self.learn:
+                new_view = self.main_game.get_snake_view() if not done else None
+                new_heading = self.main_game.get_heading() if not done else None
+
+                # Base reward for surviving
+                reward = 0.05
+
+                if done:
+                    reward = -1.0  # collision penalty
+                else:
+                    # Change in snake length
+                    delta_len = self.main_game.get_snake_len() - prev_len
+                    reward = reward + delta_len * 2.0
+
+                    # Optional: reward for moving closer to green apple
+                    new_head_x, new_head_y = self.main_game.get_snake_head()
+                    green_x, green_y = self.main_game.get_green_apple()
+                    old_dist = abs(prev_head_x - green_x) + abs(prev_head_y - green_y)
+                    new_dist = abs(new_head_x - green_x) + abs(new_head_y - green_y)
+                    if new_dist < old_dist:
+                        reward += 1  # reward for moving toward target
+                    else:
+                        reward -= 0.5  # small penalty for moving away
+
+                print(f"Reward: {reward}")
+                self._learn(
+                    prev_view=prev_view,
+                    prev_heading=prev_heading,
+                    action=(self.dx, self.dy),
+                    reward=reward,
+                    new_view=new_view,
+                    new_heading=new_heading,
+                    done=done,
+                )
+
             self.main_game.render_terminal()
             self._render_game()
             if self.human_speed:
@@ -120,9 +195,9 @@ class Learn2Slither:
         self._stop_pygame
 
     def _get_direction_ai(self, snake_view, heading):
-        dx, dy = snake_ai.act(snake_view, heading)
+        self.dx, self.dy = snake_ai.act(snake_view, heading)
         for d in Direction:
-            if d.value == (dx, dy):
+            if d.value == (self.dx, self.dy):
                 direction = d
                 break
 
