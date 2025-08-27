@@ -92,8 +92,6 @@ fn encode_state(rays: &[(Obj, u8); 4], heading: Heading) -> State {
         code |= d << shift;
         shift += 3;
     }
-
-    println!("Encoded RELATIVE state = {:024b} (raw: {})", code, code);
     State(code)
 }
 

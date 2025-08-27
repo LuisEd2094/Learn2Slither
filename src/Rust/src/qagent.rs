@@ -54,11 +54,6 @@ impl QAgent {
         let q_s = self.q_table.entry(old_state).or_insert([0.0; 3]);
         let old = q_s[a_idx];
         q_s[a_idx] = old + self.alpha * (target - old);
-
-        println!(
-            "Updated Q-value for state {:?}, action {:?}: {:.3} -> {:.3}",
-            old_state, action, old, q_s[a_idx]
-        );
     }
 
     pub fn decay(&mut self) {
@@ -112,11 +107,9 @@ impl QAgent {
 
         // exploration vs exploitation
         if rng.random::<f32>() < self.epsilon {
-            println!("Exploring...");
             let idx = rng.random_range(0..3);
             Action::from_index(idx)
         } else {
-            println!("Exploiting...");
             let (idx, _) = entry
                 .iter()
                 .enumerate()
