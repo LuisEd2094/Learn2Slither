@@ -90,7 +90,7 @@ class SnakeGame:
 
             self.direction = random.choice(possible_dirs)
             self.pending_direction = self.direction
-            dx, dy = self.direction.value
+            dx, dy = self.get_heading()
 
             snake_body = [
                 (head_x, head_y),
@@ -147,6 +147,10 @@ class SnakeGame:
             self.grid[self.red_apple[1]][self.red_apple[0]] = 3
         else:
             self.red_apple = None
+
+    def get_heading(self):
+        """Return the current heading direction of the snake."""
+        return self.direction.value
 
     def set_direction(self, new_direction: Direction):
         """Change snake direction, ignoring 180-degree reversals."""

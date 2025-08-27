@@ -2,7 +2,7 @@ import os
 from argparse import Namespace
 
 import pygame
-from snake_ai import choose_direction
+import snake_ai
 
 from ..constants import CELL_SIZE
 from ..snake_game import Direction, SnakeGame
@@ -44,6 +44,9 @@ class Learn2Slither:
             self._init_pygame()
         if self.human_speed and not self.visuals:
             self.clock = pygame.time.Clock()
+        snake_ai.init(
+            alpha=0.2, gamma=0.95, epsilon=1.0, epsilon_min=0.05, epsilon_decay=0.999
+        )
 
     def run(self):
         self._run_game()
@@ -116,8 +119,8 @@ class Learn2Slither:
 
         self._stop_pygame
 
-    def _get_direction_ai(self, snake_view):
-        dx, dy = choose_direction(snake_view)
+    def _get_direction_ai(self, snake_view, heading):
+        dx, dy = snake_ai.act(snake_view, heading)
         for d in Direction:
             if d.value == (dx, dy):
                 direction = d
@@ -127,7 +130,7 @@ class Learn2Slither:
 
     def _set_next_move_ai(self, game):
         snake_view = game.get_snake_view()
-        direction = self._get_direction_ai(snake_view)
+        direction = self._get_direction_ai(snake_view, game.get_heading())
         game.set_direction(direction)
 
     """     def _play_game_user(
