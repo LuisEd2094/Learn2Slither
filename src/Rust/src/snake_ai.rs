@@ -28,6 +28,21 @@ pub fn act(snake_view: Vec<Vec<String>>, heading: (i32, i32)) -> PyResult<(i32, 
 }
 
 #[pyfunction]
+pub fn get_numstates() -> PyResult<(i32, i32)> {
+    let agent_guard = AGENT.lock().unwrap();
+    if let Some(agent) = &*agent_guard {
+        let num_states = agent.q_table.len() as i32;
+
+        // also count total state-action entries (each state has up to 3 Q-values)
+        let total_entries: i32 = agent.q_table.values().map(|arr| arr.len() as i32).sum();
+
+        Ok((num_states, total_entries))
+    } else {
+        Ok((0, 0))
+    }
+}
+
+#[pyfunction]
 pub fn learn(
     prev_view: Vec<Vec<String>>,
     prev_heading: (i32, i32),
@@ -87,6 +102,7 @@ fn snake_ai(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(init, m)?)?;
     m.add_function(wrap_pyfunction!(act, m)?)?;
     m.add_function(wrap_pyfunction!(learn, m)?)?;
+    m.add_function(wrap_pyfunction!(get_numstates, m)?)?;
 
     Ok(())
 }

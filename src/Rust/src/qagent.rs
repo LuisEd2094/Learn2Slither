@@ -12,12 +12,12 @@ use crate::state::{extract_state, State};
 // RL formula Q(s,a)←Q(s,a)+α[r+γa′max​Q(s′,a′)−Q(s,a)]
 #[derive(Debug, Clone)]
 pub struct QAgent {
-    alpha: f32,                        // Learning rate
+    alpha: f32,                            // Learning rate
     gamma: f32, // Discount factor γ (small numbers prioritize immediate rewards, while bigger numbers encourage long-term rewards)
     epsilon: f32, // Exploration rate ε
     epsilon_min: f32, // Minimum exploration rate ε_min
     epsilon_decay: f32, // Decay rate for exploration ε_decay
-    q_table: HashMap<State, [f32; 3]>, // Forward, Left, Right
+    pub q_table: HashMap<State, [f32; 3]>, // Forward, Left, Right
 }
 
 pub static AGENT: Lazy<Mutex<Option<QAgent>>> = Lazy::new(|| Mutex::new(None));

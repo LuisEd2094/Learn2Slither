@@ -70,28 +70,30 @@ fn first_on_ray(
     }
 }
 
-/// Encode 4 (obj, distBucket) pairs + heading into a compact u64
-/// Order of directions (fixed): Up, Down, Left, Right
+/// Encode rays relative to heading: [Forward, Left, Right, Backward]
 fn encode_state(rays: &[(Obj, u8); 4], heading: Heading) -> State {
-    // Layout: [ heading(2 bits) ][ for each of 4 dirs: obj(3 bits), dist(3 bits) ] = 2 + 4*(3+3) = 26 bits
-    let mut code: u64 = 0;
-    let head_bits: u64 = match heading {
-        Heading::Up => 0,
-        Heading::Down => 1,
-        Heading::Left => 2,
-        Heading::Right => 3,
+    // Absolute directions: Up=0, Down=1, Left=2, Right=3 (must match your generation order!)
+    // Re-map them into [Forward, Left, Right, Back] based on heading
+    let order: [usize; 4] = match heading {
+        Heading::Up => [0, 2, 3, 1], // forward=Up, left=Left, right=Right, back=Down
+        Heading::Down => [1, 3, 2, 0], // forward=Down, left=Right, right=Left, back=Up
+        Heading::Left => [2, 1, 0, 3], // forward=Left, left=Down, right=Up, back=Right
+        Heading::Right => [3, 0, 1, 2], // forward=Right, left=Up, right=Down, back=Left
     };
-    code |= head_bits;
-    let mut shift = 2;
-    for (obj, dist) in rays {
-        let o = *obj as u64 & 0b111; // 3 bits
-        let d = *dist as u64 & 0b111; // 3 bits
+
+    let mut code: u64 = 0;
+    let mut shift = 0;
+    for &idx in &order {
+        let (obj, dist) = rays[idx];
+        let o = obj as u64 & 0b111; // 3 bits
+        let d = dist as u64 & 0b111; // 3 bits
         code |= o << shift;
         shift += 3;
         code |= d << shift;
         shift += 3;
     }
-    println!("Encoded state = {:026b} (raw: {})", code, code);
+
+    println!("Encoded RELATIVE state = {:024b} (raw: {})", code, code);
     State(code)
 }
 

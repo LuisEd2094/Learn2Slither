@@ -191,6 +191,7 @@ class Learn2Slither:
             if self.main_game.game_over:
                 current_run += 1
                 self.main_game.reset()
+                print("Number of states:", snake_ai.get_numstates())
 
         self._stop_pygame
 
