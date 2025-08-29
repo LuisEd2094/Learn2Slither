@@ -113,21 +113,8 @@ fn encode_state(rays: &[(Obj, u8); 4], heading: Heading) -> State {
 /// Extract rays (Up,Down,Left,Right) from the 2D view:
 /// - Find the head 'S' (we assume the head is on the cross center; if multiple 'S', pick the one whose row & col show the cross)
 /// - For each direction, walk outward until you hit the first meaningful symbol
-pub fn extract_state(view: &[Vec<String>], heading: Heading, _snake_head: (i32, i32)) -> State {
-    let h = view.len();
-    let w = if h > 0 { view[0].len() } else { 0 };
-
-    // locate head 'S'
-    let mut head: Option<(usize, usize)> = None;
-    'outer: for (y, row) in view.iter().enumerate().take(h) {
-        for (x, item) in row.iter().enumerate().take(w) {
-            if *item == "S" {
-                head = Some((x, y));
-                break 'outer;
-            }
-        }
-    }
-    let (hx, hy) = head.expect("No head 'S' found in snake_view");
+pub fn extract_state(view: &[Vec<String>], heading: Heading, snake_head: (i32, i32)) -> State {
+    let (hx, hy) = snake_head;
 
     let up = first_on_ray(view, hx as isize, hy as isize, (0, -1));
     let down = first_on_ray(view, hx as isize, hy as isize, (0, 1));

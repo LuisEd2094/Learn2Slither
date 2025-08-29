@@ -15,19 +15,54 @@ pub fn act(state: State, heading: (i32, i32)) -> PyResult<(i32, i32)> {
         .expect("Agent not initialized. Call init(...) first.");
 
     // choose action
-    let a = agent.eps_greedy(state);
     let heading = Heading::from_tuple(heading.0, heading.1)
         .ok_or_else(|| PyErr::new::<pyo3::exceptions::PyValueError, _>("Invalid heading tuple"))?;
+    let a = agent.eps_greedy(state);
 
     // map to new absolute heading & return (dx,dy)
     let new_heading = heading.turn(a);
     Ok(new_heading.to_tuple())
 }
 
+/* use std::collections::HashMap;
+pub fn print_q_table(q_table: &HashMap<State, [f32; 3]>) {
+    for (state, values) in q_table {
+        let code = state.0;
+
+        // Binary repr
+        println!("State {} (0b{:07b}):", code, code);
+
+        // Decode apple bits
+        println!(
+            "  Apples: front={} left={} right={} back={}",
+            (code >> 0) & 1,
+            (code >> 1) & 1,
+            (code >> 2) & 1,
+            (code >> 3) & 1,
+        );
+
+        // Decode obstacle bits
+        println!(
+            "  Obstacles: front={} left={} right={}",
+            (code >> 4) & 1,
+            (code >> 5) & 1,
+            (code >> 6) & 1,
+        );
+
+        // Q-values
+        println!(
+            "  Q-values => Forward: {:.3}, Left: {:.3}, Right: {:.3}",
+            values[0], values[1], values[2]
+        );
+        println!("---------------------------------------");
+    }
+} */
+
 #[pyfunction]
 pub fn get_numstates() -> PyResult<(i32, i32)> {
     let agent_guard = AGENT.lock().unwrap();
     if let Some(agent) = &*agent_guard {
+        //print_q_table(&agent.q_table);
         let num_states = agent.q_table.len() as i32;
 
         // also count total state-action entries (each state has up to 3 Q-values)
@@ -68,6 +103,7 @@ pub fn learn(
     prev_state: State,
     action: Action,
     reward: f32,
+    decay: bool,
     // If game over, there is no new view
     s_next: Option<State>,
 ) -> PyResult<()> {
@@ -75,7 +111,9 @@ pub fn learn(
     let agent = agent_guard.as_mut().expect("Agent not initialized.");
 
     agent.update(prev_state, action, reward, s_next);
-    agent.decay();
+    if decay {
+        agent.decay();
+    }
     Ok(())
 }
 

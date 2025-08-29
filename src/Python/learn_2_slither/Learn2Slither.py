@@ -47,10 +47,10 @@ class Learn2Slither:
         self.dx, self.dy = 0.0, 0.0
         self.max_possible_length = self.main_game.width * self.main_game.height
         snake_ai.init(
-            alpha=0.15,
-            gamma=0.97,
-            epsilon=1.0,
-            epsilon_min=0.01,
+            alpha=0.01,
+            gamma=0.95,
+            epsilon=0.99,
+            epsilon_min=0.1,
             epsilon_decay=0.995,
         )
 
@@ -113,6 +113,7 @@ class Learn2Slither:
         self,
         prev_state,
         action,
+        decay,
         reward,
         s_next,
     ):
@@ -122,6 +123,7 @@ class Learn2Slither:
             prev_state,
             action,
             reward,
+            decay,
             s_next,
         )
 
@@ -158,12 +160,11 @@ class Learn2Slither:
             if new_distance < prev_distance:
                 reward += 0.1
             elif new_distance > prev_distance:
-                reward -= 0.05
+                reward -= 0.02
         return reward
 
     def _get_reward(self, prev_len, done, prev_head_x, prev_head_y, prev_view):
         # Base reward for surviving, negative to avoid stalling
-        reward = -0.01
 
         if done:
             reward = -1.0
@@ -171,18 +172,19 @@ class Learn2Slither:
             # Change in snake length
             snake_len = self.main_game.get_snake_len()
             delta_len = snake_len - prev_len
-
+            moved_to_apple = self.calculate_based_on_move_to_apple(
+                prev_view, prev_head_x, prev_head_y
+            )
             if delta_len > 0:
                 # Reward grows with snake length
-                reward += 0.5
+                reward = 0.75
             elif delta_len < 0:
                 # Penalty smaller if snake is big, bigger if small
-                reward -= 0.2
+                reward = -0.40
+            elif moved_to_apple != 0.0:
+                reward = moved_to_apple
             else:
-                reward += self.calculate_based_on_move_to_apple(
-                    prev_view, prev_head_x, prev_head_y
-                )
-
+                reward = -0.1
         # Keep it within -1.0 and 1.0
         reward = max(-1.0, min(1.0, reward))
 
@@ -192,6 +194,11 @@ class Learn2Slither:
         current_run = 0
         number_of_steps = 0
         max_snake_len = 0
+        max_steps = 1000
+        current_steps = 0
+        decay = True
+        seen_states = set()
+
         while current_run < self.sessions:
             # Get previous state information before AI moves
             if self.learn:
@@ -203,6 +210,13 @@ class Learn2Slither:
                 prev_state = snake_ai.get_state(
                     prev_view, prev_heading, prev_snake_head
                 )
+                if current_run > (self.sessions // 4):
+                    decay = True
+                seen_states.add(
+                    prev_state.value()
+                )  # if State has .value() returning u64
+                # print(f"Unique states so far: {len(seen_states)}")
+                current_steps += 1
 
             # Set next move for the AI in the game
             action = self._set_next_move_ai(self.main_game)
@@ -232,12 +246,15 @@ class Learn2Slither:
                     action=action,
                     reward=reward,
                     s_next=new_state,
+                    decay=decay,
                 )
+                if current_steps >= max_steps:
+                    self.main_game.game_over = True
             if self.visuals:
                 self.main_game.render_terminal()
                 self._render_game()
             if self.human_speed:
-                self.clock.tick(5)
+                self.clock.tick(25)
             number_of_steps += 1
             if self.main_game.game_over:
                 current_run += 1
@@ -248,6 +265,7 @@ class Learn2Slither:
                 print("Max snake length:", max_snake_len)
                 max_snake_len = 0
                 number_of_steps = 0
+                current_steps = 0
 
         self._stop_pygame()
 
@@ -259,89 +277,49 @@ class Learn2Slither:
                 break
 
         action = snake_ai.get_action(heading, (self.dx, self.dy))
-
         return direction, action
+
+    def _predict_next_head(self, game, direction):
+        return game.get_new_head(direction)
+
+    def _would_collide(self, game, head):
+        return game.would_colide(head)
 
     def _set_next_move_ai(self, game):
         snake_view = game.get_snake_view()
-        state = snake_ai.get_state(
-            snake_view, game.get_heading(), game.get_snake_head()
-        )
-        direction, action = self._get_direction_ai(state, game.get_heading())
+        heading = game.get_heading()
+        snake_head = game.get_snake_head()
+        prev_state = snake_ai.get_state(snake_view, heading, snake_head)
+
+        tried_actions = set()
+        last_action = None
+
+        while len(tried_actions) < 3:
+            direction, action = self._get_direction_ai(prev_state, heading)
+            last_action = action
+
+            if action in tried_actions:
+                # Already tested this action
+                continue
+
+            # Predict if this action will immediately die
+            next_head = self._predict_next_head(game, direction)
+            if self._would_collide(game, next_head):
+                # Learn negative reward
+                self._learn(
+                    prev_state=prev_state,
+                    action=action,
+                    reward=-1.0,
+                    s_next=None,
+                    decay=False,
+                )
+                tried_actions.add(action)
+                continue
+            else:
+                # Safe action found
+                game.set_direction(direction)
+                return action
+
+        # All actions kill: just pick the last one
         game.set_direction(direction)
-
-        return action
-
-    """     def _play_game_user(
-        self,
-        game,
-        use_box=True,
-    ):
-        # TODO, remove this function once is no longer useful as reference for a human game
-        pygame.init()
-        cell_size = 30
-        # Get copy of initial game state
-        game = game
-        # PYGAME needs a display to capture the keyboard inputs
-        screen = (
-            pygame.display.set_mode((1, 1))
-            if not use_box
-            else pygame.display.set_mode(
-                (game.width * cell_size, game.height * cell_size)
-            )
-        )
-        clock = pygame.time.Clock()
-
-        running = True
-        direction_map = {
-            pygame.K_UP: Direction.UP,
-            pygame.K_DOWN: Direction.DOWN,
-            pygame.K_LEFT: Direction.LEFT,
-            pygame.K_RIGHT: Direction.RIGHT,
-        }
-
-        while running:
-            # Handle events
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    running = False
-                elif event.type == pygame.KEYDOWN:
-                    if event.key in direction_map:
-                        game.set_direction(direction_map[event.key])
-                    elif event.key == pygame.K_r:
-                        game.reset()
-                    elif event.key == pygame.K_q:
-                        running = False
-
-            # Move snake
-            if not game.game_over:
-                game.step()
-
-            if use_box:
-                # Draw full grid
-                screen.fill((0, 0, 0))
-                grid = game.get_state()
-                for y in range(game.height):
-                    for x in range(game.width):
-                        rect = pygame.Rect(
-                            x * cell_size, y * cell_size, cell_size, cell_size
-                        )
-                        if grid[y][x] == 1:
-                            pygame.draw.rect(screen, (0, 200, 0), rect)
-                        elif grid[y][x] == 2:
-                            pygame.draw.rect(screen, (0, 255, 0), rect)
-                        elif grid[y][x] == 3:
-                            pygame.draw.rect(screen, (255, 0, 0), rect)
-                        pygame.draw.rect(screen, (50, 50, 50), rect, 1)
-                    font = pygame.font.SysFont(None, 24)
-                text = font.render(
-                    f"Size: {len(game.snake)}", True, (255, 255, 255)
-                )
-                screen.blit(
-                    text, (game.width * cell_size - text.get_width() - 5, 5)
-                )
-                pygame.display.flip()
-
-            game.render_terminal()
-            clock.tick(5)
-        pygame.quit() """
+        return last_action

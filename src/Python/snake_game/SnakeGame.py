@@ -71,8 +71,8 @@ class SnakeGame:
     def reset(self):
         max_attempts = 100
         for _ in range(max_attempts):
-            head_x = random.randint(2, self.width - 3)
-            head_y = random.randint(2, self.height - 3)
+            head_x = random.randint(1, self.width - 1)
+            head_y = random.randint(1, self.height - 1)
 
             possible_dirs = []
             # Check if snake fits 3 cells in each direction
@@ -178,6 +178,16 @@ class SnakeGame:
         tail = self.snake.pop()
         self.grid[tail[1]][tail[0]] = 0
 
+    def get_new_head(self, direction):
+        head_x, head_y = self.snake[0]
+        dx, dy = direction.value
+        return (head_x + dx, head_y + dy)
+
+    def would_colide(self, head):
+        return (head in self.snake) or not (
+            0 <= head[0] < self.width and 0 <= head[1] < self.height
+        )
+
     def step(self):
         """Advance the game one tick in the current direction."""
         if self.game_over:
@@ -185,15 +195,10 @@ class SnakeGame:
 
         # Apply pending direction
         self.direction = self.pending_direction
-
-        head_x, head_y = self.snake[0]
-        dx, dy = self.direction.value
-        new_head = (head_x + dx, head_y + dy)
+        new_head = self.get_new_head(self.direction)
 
         # Check collisions
-        if (new_head in self.snake) or not (
-            0 <= new_head[0] < self.width and 0 <= new_head[1] < self.height
-        ):
+        if self.would_colide(new_head):
             self.game_over = True
             return
 
