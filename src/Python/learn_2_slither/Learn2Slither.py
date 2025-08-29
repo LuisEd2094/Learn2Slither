@@ -16,11 +16,6 @@ class Learn2Slither:
         # TODO check valid paths
         self.save_path: str = args.save_path
         self.load_path: str = args.load_path
-        if self.save_path and not os.path.isdir(os.path.dirname(self.save_path)):
-            raise ValueError(f"Save path directory does not exist: {self.save_path}")
-
-        if self.load_path and not os.path.isfile(self.load_path):
-            raise ValueError(f"Load path does not exist: {self.load_path}")
 
         self.learn: bool = args.learn
         self.human_speed: bool = args.human_speed
@@ -45,7 +40,6 @@ class Learn2Slither:
         if self.human_speed and not self.visuals:
             self.clock = pygame.time.Clock()
         self.dx, self.dy = 0.0, 0.0
-        self.max_possible_length = self.main_game.width * self.main_game.height
         snake_ai.init(
             alpha=0.01,
             gamma=0.95,
@@ -53,6 +47,31 @@ class Learn2Slither:
             epsilon_min=0.1,
             epsilon_decay=0.995,
         )
+
+        if self.save_path:
+            save_dir = os.path.dirname(os.path.abspath(self.save_path))
+            if not os.path.isdir(save_dir):
+                raise ValueError(f"Save path directory does not exist: {save_dir}")
+
+        if self.load_path:
+            if not os.path.isfile(os.path.abspath(self.load_path)):
+                raise ValueError(f"Load path is not a file: {self.load_path}")
+            self._load_contents()
+
+    def _save_contents(self):
+        content = snake_ai.get_q_table()
+
+        with open(self.save_path, "w", encoding="utf-8") as f:
+            for state, v1, v2, v3 in content:
+                f.write(f"{state},{v1},{v2},{v3}\n")
+
+    def _load_contents(self):
+        data = []
+        with open(self.load_path, "r", encoding="utf-8") as f:
+            for line in f:
+                state, v1, v2, v3 = line.strip().split(",")
+                data.append((int(state), float(v1), float(v2), float(v3)))
+        snake_ai.load_q_table(data)
 
     def run(self):
         self._run_game()
@@ -78,6 +97,8 @@ class Learn2Slither:
         self.clock = pygame.time.Clock()
 
     def _stop_pygame(self):
+        if self.save_path:
+            self._save_contents()
         if self.visuals:
             pygame.quit()
 

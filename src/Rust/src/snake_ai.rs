@@ -24,6 +24,26 @@ pub fn act(state: State, heading: (i32, i32)) -> PyResult<(i32, i32)> {
     Ok(new_heading.to_tuple())
 }
 
+#[pyfunction]
+pub fn get_q_table() -> PyResult<Vec<(u64, f32, f32, f32)>> {
+    let mut guard = AGENT.lock().unwrap();
+    let agent = guard
+        .as_mut()
+        .expect("Agent not initialized. Call init(...) first.");
+
+    Ok(agent.get_q_table())
+}
+
+#[pyfunction]
+pub fn load_q_table(data: Vec<(u64, f32, f32, f32)>) -> PyResult<()> {
+    let mut guard = AGENT.lock().unwrap();
+    let agent = guard
+        .as_mut()
+        .expect("Agent not initialized. Call init(...) first.");
+
+    agent.load_q_table(data);
+    Ok(())
+}
 /* use std::collections::HashMap;
 pub fn print_q_table(q_table: &HashMap<State, [f32; 3]>) {
     for (state, values) in q_table {
@@ -141,6 +161,8 @@ fn snake_ai(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(get_numstates, m)?)?;
     m.add_function(wrap_pyfunction!(get_state, m)?)?;
     m.add_function(wrap_pyfunction!(get_action, m)?)?;
+    m.add_function(wrap_pyfunction!(get_q_table, m)?)?;
+    m.add_function(wrap_pyfunction!(load_q_table, m)?)?;
 
     m.add_class::<State>()?;
     m.add_class::<Action>()?;

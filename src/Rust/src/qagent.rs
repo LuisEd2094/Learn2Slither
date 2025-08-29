@@ -32,6 +32,21 @@ impl QAgent {
         }
     }
 
+    pub fn get_q_table(&self) -> Vec<(u64, f32, f32, f32)> {
+        self.q_table
+            .iter()
+            .map(|(s, values)| (s.0, values[0], values[1], values[2]))
+            .collect()
+    }
+
+    pub fn load_q_table(&mut self, data: Vec<(u64, f32, f32, f32)>) {
+        let mut new_table = HashMap::new();
+        for (state_id, v1, v2, v3) in data {
+            new_table.insert(State(state_id), [v1, v2, v3]);
+        }
+        self.q_table = new_table;
+    }
+
     pub fn update(
         &mut self,
         old_state: State,
