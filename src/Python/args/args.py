@@ -20,7 +20,7 @@ def get_args():
         "--sessions",
         type=int,
         required=False,
-        default=10,
+        default=100,
         help="Number of sessions to run",
     )
 
@@ -66,8 +66,8 @@ def get_args():
         type=str2bool,
         nargs="?",
         const=True,
-        default=True,
-        help="Whether to enable visualizations. Defaults to True.",
+        default=False,
+        help="Whether to enable visualizations. Defaults to False.",
     )
 
     parser.add_argument(

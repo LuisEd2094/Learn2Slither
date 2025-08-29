@@ -1,13 +1,11 @@
 use once_cell::sync::Lazy;
-use pyo3::prelude::*;
 use rand::{rng, Rng};
 use std::collections::HashMap;
 use std::fmt;
 use std::sync::Mutex;
 
 use crate::action::Action;
-use crate::heading::Heading;
-use crate::state::{extract_state, State};
+use crate::state::State;
 
 // RL formula Q(s,a)←Q(s,a)+α[r+γa′max​Q(s′,a′)−Q(s,a)]
 #[derive(Debug, Clone)]
@@ -59,46 +57,6 @@ impl QAgent {
     pub fn decay(&mut self) {
         // Epsilon decay means it'd start to explore less and exploit more over time
         self.epsilon = (self.epsilon * self.epsilon_decay).max(self.epsilon_min);
-    }
-
-    pub fn learn(
-        prev_view: Vec<Vec<String>>,
-        prev_heading: (i32, i32),
-        action: (i32, i32),
-        reward: f32,
-        // if done, there will be no next_view or heading
-        next_view: Option<Vec<Vec<String>>>,
-        next_heading: Option<(i32, i32)>,
-        done: bool,
-    ) -> PyResult<()> {
-        let mut agent_guard = AGENT.lock().unwrap();
-        let agent = agent_guard.as_mut().expect("Agent not initialized.");
-
-        let prev_h = Heading::from_tuple(prev_heading.0, prev_heading.1).ok_or_else(|| {
-            PyErr::new::<pyo3::exceptions::PyValueError, _>("Invalid prev heading")
-        })?;
-        let s = extract_state(&prev_view, prev_h);
-
-        // figure out which relative action corresponds to the absolute action applied
-        let absolute_a = Heading::from_tuple(action.0, action.1).ok_or_else(|| {
-            PyErr::new::<pyo3::exceptions::PyValueError, _>("Invalid action tuple")
-        })?;
-        let relative_action = Action::from_absolute(prev_h, absolute_a);
-
-        let s_next: Option<State> = if done {
-            None
-        } else {
-            let nh = next_heading
-                .and_then(|(dx, dy)| Heading::from_tuple(dx, dy))
-                .ok_or_else(|| {
-                    PyErr::new::<pyo3::exceptions::PyValueError, _>("Invalid next heading")
-                })?;
-            Some(extract_state(next_view.as_ref().unwrap(), nh))
-        };
-
-        agent.update(s, relative_action, reward, s_next);
-        agent.decay();
-        Ok(())
     }
     pub fn eps_greedy(&mut self, s: State) -> Action {
         // ensure entry exists

@@ -1,7 +1,22 @@
+use pyo3::prelude::*;
+
 use crate::Heading;
 
+#[pyclass]
 #[derive(Eq, Hash, PartialEq, Debug, Clone, Copy)]
-pub struct State(u64);
+pub struct State(pub u64);
+
+#[pymethods]
+impl State {
+    #[new]
+    pub fn new(value: u64) -> Self {
+        State(value)
+    }
+
+    pub fn value(&self) -> u64 {
+        self.0
+    }
+}
 
 /// What the snake might see on a ray
 #[derive(Copy, Clone, Debug)]
@@ -98,7 +113,7 @@ fn encode_state(rays: &[(Obj, u8); 4], heading: Heading) -> State {
 /// Extract rays (Up,Down,Left,Right) from the 2D view:
 /// - Find the head 'S' (we assume the head is on the cross center; if multiple 'S', pick the one whose row & col show the cross)
 /// - For each direction, walk outward until you hit the first meaningful symbol
-pub fn extract_state(view: &[Vec<String>], heading: Heading) -> State {
+pub fn extract_state(view: &[Vec<String>], heading: Heading, _snake_head: (i32, i32)) -> State {
     let h = view.len();
     let w = if h > 0 { view[0].len() } else { 0 };
 

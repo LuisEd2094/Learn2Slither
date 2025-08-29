@@ -45,12 +45,13 @@ class Learn2Slither:
         if self.human_speed and not self.visuals:
             self.clock = pygame.time.Clock()
         self.dx, self.dy = 0.0, 0.0
+        self.max_possible_length = self.main_game.width * self.main_game.height
         snake_ai.init(
-            alpha=0.5,
-            gamma=0.95,
+            alpha=0.15,
+            gamma=0.97,
             epsilon=1.0,
-            epsilon_min=0.1,
-            epsilon_decay=0.999,
+            epsilon_min=0.01,
+            epsilon_decay=0.995,
         )
 
     def run(self):
@@ -110,104 +111,166 @@ class Learn2Slither:
 
     def _learn(
         self,
-        prev_view,
-        prev_heading,
+        prev_state,
         action,
         reward,
-        new_view,
-        new_heading,
-        done,
+        s_next,
     ):
         # Implement learning logic here
 
         snake_ai.learn(
-            prev_view,
-            prev_heading,
+            prev_state,
             action,
             reward,
-            new_view,
-            new_heading,
-            done,
+            s_next,
         )
+
+    def find_green_apple(self, prev_view, head_x, head_y):
+        """Return the coordinates of the first green apple seen, or None."""
+        h, w = len(prev_view), len(prev_view[0])
+        directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+
+        for dx, dy in directions:
+            x, y = head_x, head_y
+            while 0 <= x < h and 0 <= y < w:
+                cell = prev_view[x][y]
+                if cell not in [" ", "."]:
+                    if cell == "G":
+                        return (x, y)
+                    break
+                x += dx
+                y += dy
+
+        return None
+
+    def calculate_based_on_move_to_apple(self, prev_view, prev_head_x, prev_head_y):
+        apple_pos_prev = self.find_green_apple(prev_view, prev_head_x, prev_head_y)
+        reward = 0.0
+        if apple_pos_prev is not None:
+            head_x, head_y = self.main_game.get_snake_head()
+            prev_distance = abs(prev_head_x - apple_pos_prev[0]) + abs(
+                prev_head_y - apple_pos_prev[1]
+            )
+            new_distance = abs(head_x - apple_pos_prev[0]) + abs(
+                head_y - apple_pos_prev[1]
+            )
+
+            if new_distance < prev_distance:
+                reward += 0.1
+            elif new_distance > prev_distance:
+                reward -= 0.05
+        return reward
+
+    def _get_reward(self, prev_len, done, prev_head_x, prev_head_y, prev_view):
+        # Base reward for surviving, negative to avoid stalling
+        reward = -0.01
+
+        if done:
+            reward = -1.0
+        else:
+            # Change in snake length
+            snake_len = self.main_game.get_snake_len()
+            delta_len = snake_len - prev_len
+
+            if delta_len > 0:
+                # Reward grows with snake length
+                reward += 0.5
+            elif delta_len < 0:
+                # Penalty smaller if snake is big, bigger if small
+                reward -= 0.2
+            else:
+                reward += self.calculate_based_on_move_to_apple(
+                    prev_view, prev_head_x, prev_head_y
+                )
+
+        # Keep it within -1.0 and 1.0
+        reward = max(-1.0, min(1.0, reward))
+
+        return reward
 
     def _run_game(self):
         current_run = 0
+        number_of_steps = 0
+        max_snake_len = 0
         while current_run < self.sessions:
             # Get previous state information before AI moves
             if self.learn:
                 prev_view = self.main_game.get_snake_view()
                 prev_heading = self.main_game.get_heading()
+                prev_snake_head = self.main_game.get_snake_head()
                 prev_len = self.main_game.get_snake_len()
                 prev_head_x, prev_head_y = self.main_game.get_snake_head()
+                prev_state = snake_ai.get_state(
+                    prev_view, prev_heading, prev_snake_head
+                )
 
             # Set next move for the AI in the game
-            self._set_next_move_ai(self.main_game)
+            action = self._set_next_move_ai(self.main_game)
 
             # Run the next move
             self.main_game.step()
 
             done = self.main_game.get_done()
 
+            max_snake_len = max(max_snake_len, self.main_game.get_snake_len())
+
             if self.learn:
+                reward = self._get_reward(
+                    prev_len, done, prev_head_x, prev_head_y, prev_view
+                )
                 new_view = self.main_game.get_snake_view() if not done else None
                 new_heading = self.main_game.get_heading() if not done else None
-
-                # Base reward for surviving
-                reward = 0.05
-
-                if done:
-                    reward = -1.0  # collision penalty
-                else:
-                    # Change in snake length
-                    delta_len = self.main_game.get_snake_len() - prev_len
-                    reward = reward + delta_len * 2.0
-
-                    # Optional: reward for moving closer to green apple
-                    new_head_x, new_head_y = self.main_game.get_snake_head()
-                    green_x, green_y = self.main_game.get_green_apple()
-                    old_dist = abs(prev_head_x - green_x) + abs(prev_head_y - green_y)
-                    new_dist = abs(new_head_x - green_x) + abs(new_head_y - green_y)
-                    if new_dist < old_dist:
-                        reward += 1  # reward for moving toward target
-                    else:
-                        reward -= 0.5  # small penalty for moving away
-
-                print(f"Reward: {reward}")
-                self._learn(
-                    prev_view=prev_view,
-                    prev_heading=prev_heading,
-                    action=(self.dx, self.dy),
-                    reward=reward,
-                    new_view=new_view,
-                    new_heading=new_heading,
-                    done=done,
+                new_snake_head = self.main_game.get_snake_head() if not done else None
+                new_state = (
+                    snake_ai.get_state(new_view, new_heading, new_snake_head)
+                    if not done
+                    else None
                 )
 
-            self.main_game.render_terminal()
-            self._render_game()
+                self._learn(
+                    prev_state=prev_state,
+                    action=action,
+                    reward=reward,
+                    s_next=new_state,
+                )
+            if self.visuals:
+                self.main_game.render_terminal()
+                self._render_game()
             if self.human_speed:
                 self.clock.tick(5)
-
+            number_of_steps += 1
             if self.main_game.game_over:
                 current_run += 1
                 self.main_game.reset()
+                print(f"Session {current_run}/{self.sessions} completed.")
                 print("Number of states:", snake_ai.get_numstates())
+                print("Number of steps:", number_of_steps)
+                print("Max snake length:", max_snake_len)
+                max_snake_len = 0
+                number_of_steps = 0
 
-        self._stop_pygame
+        self._stop_pygame()
 
-    def _get_direction_ai(self, snake_view, heading):
-        self.dx, self.dy = snake_ai.act(snake_view, heading)
+    def _get_direction_ai(self, state, heading):
+        self.dx, self.dy = snake_ai.act(state, heading)
         for d in Direction:
             if d.value == (self.dx, self.dy):
                 direction = d
                 break
 
-        return direction
+        action = snake_ai.get_action(heading, (self.dx, self.dy))
+
+        return direction, action
 
     def _set_next_move_ai(self, game):
         snake_view = game.get_snake_view()
-        direction = self._get_direction_ai(snake_view, game.get_heading())
+        state = snake_ai.get_state(
+            snake_view, game.get_heading(), game.get_snake_head()
+        )
+        direction, action = self._get_direction_ai(state, game.get_heading())
         game.set_direction(direction)
+
+        return action
 
     """     def _play_game_user(
         self,

@@ -1,5 +1,8 @@
+use pyo3::prelude::*;
+
 use crate::heading::Heading;
 
+#[pyclass]
 #[derive(Copy, Clone, Debug)]
 pub enum Action {
     Forward = 0,
