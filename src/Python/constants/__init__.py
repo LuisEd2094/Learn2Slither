@@ -1,3 +1,3 @@
-from .constants import CELL_SIZE, GAME_SPEED
+from .constants import CELL_SIZE, DARK_GREEN, GAME_SPEED, LIGHT_GREEN, YELLOW_ORANGE
 
-__all__ = ["CELL_SIZE", "GAME_SPEED"]
+__all__ = ["CELL_SIZE", "GAME_SPEED", "DARK_GREEN", "LIGHT_GREEN", "YELLOW_ORANGE"]

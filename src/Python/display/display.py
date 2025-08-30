@@ -2,9 +2,8 @@ import sys
 
 import pygame
 
+from Python.constants import GAME_SPEED, YELLOW_ORANGE
 from Python.learn_2_slither import Learn2Slither
-
-from ..constants import GAME_SPEED
 
 
 class Display:
@@ -16,7 +15,10 @@ class Display:
                 "Use Display.get_instance() instead of instantiating directly"
             )
         pygame.init()
-        self.font = pygame.font.SysFont("Arial", 28)
+        self.font = pygame.font.Font(
+            "/home/luis/proyects/Learn2Slither/src/assets/fonts/PressStart2P-Regular.ttf",
+            28,
+        )
         self.screen = pygame.display.set_mode((1024, 768))
         self.clock = pygame.time.Clock()
         self.running = True
@@ -30,9 +32,46 @@ class Display:
             cls._instance = Display()
         return cls._instance
 
-    def draw_text(self, text, x, y, color=(255, 255, 255)):
-        label = self.font.render(text, True, color)
-        self.screen.blit(label, (x, y))
+    def draw_text(self, text, x, y, colors=[(255, 0, 0), (255, 255, 0)]):
+        """
+        Draw text with a vertical gradient.
+        colors: list of RGB tuples, e.g., [(255,0,0), (255,255,0)]
+        """
+        # Render the text in white (for mask)
+        text_surf = self.font.render(text, True, (255, 255, 255))
+        text_rect = text_surf.get_rect(topleft=(x, y))
+
+        # Create a gradient surface same size as the text
+        gradient = pygame.Surface(text_surf.get_size(), pygame.SRCALPHA)
+        height = text_surf.get_height()
+
+        # Linear interpolation between colors
+        for y_pos in range(height):
+            # Calculate which two colors to interpolate
+            total_segments = len(colors) - 1
+            segment_height = height / total_segments
+            segment_index = int(y_pos // segment_height)
+            if segment_index >= total_segments:
+                segment_index = total_segments - 1
+
+            c1 = colors[segment_index]
+            c2 = colors[segment_index + 1]
+
+            # Interpolation factor (0-1)
+            factor = (y_pos - segment_index * segment_height) / segment_height
+            r = int(c1[0] + (c2[0] - c1[0]) * factor)
+            g = int(c1[1] + (c2[1] - c1[1]) * factor)
+            b = int(c1[2] + (c2[2] - c1[2]) * factor)
+
+            pygame.draw.line(
+                gradient, (r, g, b), (0, y_pos), (text_surf.get_width(), y_pos)
+            )
+
+        # Apply the text as a mask to the gradient
+        gradient.blit(text_surf, (0, 0), None, pygame.BLEND_RGBA_MULT)
+
+        # Blit final gradient text to the screen
+        self.screen.blit(gradient, text_rect)
 
     def fill(self, color=(0, 0, 0)):
         self.screen.fill(color)
@@ -79,13 +118,8 @@ class Display:
                     pygame.draw.rect(self.screen, (255, 0, 0), rect)
                 pygame.draw.rect(self.screen, (50, 50, 50), rect, 1)
 
-        text = self.font.render(
-            f"Size: {len(self.main_game.snake)}", True, (255, 255, 255)
-        )
-        self.screen.blit(
-            text,
-            (self.main_game.width * self.cell_size - text.get_width() - 5, 5),
-        )
+        text = f"Size: {len(self.main_game.snake)}"
+        self.draw_text(text, 5, 5, YELLOW_ORANGE)
         pygame.display.flip()
 
     def render_menu(self):
