@@ -5,9 +5,9 @@ from Python.menu import Menu
 
 def main():
     args = get_args()
-    if args.pve:
-        menu = Menu(args)
-        menu.run()
+    if args.menu:
+        menu = Menu()
+        print(menu.run())
     else:
         l2s = Learn2Slither(args)
         l2s.run()
