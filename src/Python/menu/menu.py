@@ -1,16 +1,15 @@
-import sys
 from argparse import Namespace
 
 import pygame
 
+from Python.display import Display
+from Python.learn_2_slither import Learn2Slither
+
 
 class Menu:
     def __init__(self):
-        pygame.init()
-        self.font = pygame.font.SysFont("Arial", 28)
-        self.screen = pygame.display.set_mode((1024, 768))
-        self.clock = pygame.time.Clock()
-        self.running = True
+        # Display also inits pygame
+        self.display = Display.get_instance()
 
         # Default values
         self.options = {
@@ -24,15 +23,11 @@ class Menu:
         self.items = list(self.options.keys())
         self.items.append("START")
         self.selected_index = 0
-
-    def draw_text(self, text, x, y, color=(255, 255, 255)):
-        label = self.font.render(text, True, color)
-        self.screen.blit(label, (x, y))
+        self.running = True
 
     def run(self):
         while self.running:
-            self.screen.fill((30, 30, 30))
-
+            self.display.fill()
             # Draw menu items
             for i, item in enumerate(self.items):
                 color = (255, 255, 0) if i == self.selected_index else (255, 255, 255)
@@ -42,19 +37,16 @@ class Menu:
                 else:
                     value = self.options[item]
                     text = f"{item}: {value}"
-
-                self.draw_text(text, 60, 60 + i * 40, color)
+                self.display.display_menu(text, i, color)
 
             # Handle events
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
-                    pygame.quit()
-                    sys.exit()
+                    self.display.quit()
 
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE or event.key == pygame.K_q:
-                        pygame.quit()
-                        sys.exit()
+                        self.display.quit()
 
                     if event.key == pygame.K_UP:
                         self.selected_index = (self.selected_index - 1) % len(
@@ -76,11 +68,11 @@ class Menu:
                         current_item = self.items[self.selected_index]
                         if current_item in ["sessions", "grid_size"]:
                             self._modify_numeric(current_item, event.key)
+            self.display.flip()
+            self.display.tick()
 
-            pygame.display.flip()
-            self.clock.tick(30)
-
-        return Namespace(**self.options)
+        l2s = Learn2Slither(Namespace(**self.options))
+        l2s.run()
 
     def _modify_option(self, item, toggle_only=False):
         """Change value depending on type"""
@@ -97,5 +89,5 @@ class Menu:
         # Clamp values
         if item == "sessions" and self.options[item] < 1:
             self.options[item] = 1
-        if item == "grid_size" and self.options[item] < 5:
-            self.options[item] = 5
+        if item == "grid_size" and self.options[item] < 10:
+            self.options[item] = 10

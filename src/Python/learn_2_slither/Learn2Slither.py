@@ -3,37 +3,52 @@ from argparse import Namespace
 
 import snake_ai
 
+from Python.constants import CELL_SIZE
 from Python.display import Display
 
 from ..snake_game import Direction, SnakeGame
 
 
 class Learn2Slither:
+    DEFAULTS = {
+        "sessions": 10,
+        "save_path": "",
+        "load_path": "",
+        "learn": True,
+        "human_speed": False,
+        "pve": False,
+        "grid_size": CELL_SIZE,
+        "visuals": True,
+    }
+
     def __init__(self, args: Namespace):
-        self.sessions: int = args.sessions
+        config = {**self.DEFAULTS, **vars(args)}
+        self.sessions: int = config["sessions"]
         if self.sessions < 1:
             raise ValueError("Number of sessions must be at least 1.")
         # TODO check valid paths
-        self.save_path: str = args.save_path
-        self.load_path: str = args.load_path
+        self.save_path: str = config["save_path"]
+        self.load_path: str = config["load_path"]
 
-        self.learn: bool = args.learn
-        self.human_speed: bool = args.human_speed
-        self.pve: bool = args.pve
-        self.grid_size: int = args.grid_size
+        self.learn: bool = config["learn"]
+        self.human_speed: bool = config["human_speed"]
+        self.pve: bool = config["pve"]
+        self.grid_size: int = config["grid_size"]
 
         # Initialize main game, when in PVE mode we main game will be used
         # by the player and secondary game will be used by the AI
         # When NOT in pve mode, then it's only the AI that will use it.
         self.main_game = SnakeGame(width=self.grid_size, height=self.grid_size)
-        self.visuals: bool = args.visuals
+        self.visuals: bool = config["visuals"]
 
         if self.pve:
             self.secondary_game = SnakeGame(width=self.grid_size, height=self.grid_size)
             self.human_speed = True
             self.visuals = True
 
-        self.display = Display(self)
+        if self.visuals:
+            self.display = Display.get_instance()
+            self.display.init_game(self)
 
         self.dx, self.dy = 0.0, 0.0
         snake_ai.init(
@@ -221,7 +236,7 @@ class Learn2Slither:
                     self.main_game.game_over = True
             if self.visuals:
                 self.main_game.render_terminal()
-                self.display.render()
+                self.display.render_game()
             if self.human_speed:
                 self.display.tick()
             number_of_steps += 1
