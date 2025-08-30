@@ -1,44 +1,63 @@
 import os
 from argparse import Namespace
 
-import pygame
 import snake_ai
 
-from ..constants import CELL_SIZE
+from Python.constants import CELL_SIZE
+from Python.display import Display
+
 from ..snake_game import Direction, SnakeGame
 
 
 class Learn2Slither:
+    DEFAULTS = {
+        "sessions": 10,
+        "save_path": "",
+        "load_path": "",
+        "learn": True,
+        "human_speed": False,
+        "pve": False,
+        "grid_size": CELL_SIZE,
+        "visuals": True,
+        "difficulty": None,
+    }
+
+    DIFFICULTY = {
+        "easy": "/home/luis/proyects/Learn2Slither/src/models/pve/easy.txt",
+        "normal": "/home/luis/proyects/Learn2Slither/src/models/pve/normal.txt",
+        "hard": "/home/luis/proyects/Learn2Slither/src/models/pve/hard.txt",
+    }
+
     def __init__(self, args: Namespace):
-        self.sessions: int = args.sessions
+        config = {**self.DEFAULTS, **vars(args)}
+        self.sessions: int = config["sessions"]
         if self.sessions < 1:
             raise ValueError("Number of sessions must be at least 1.")
         # TODO check valid paths
-        self.save_path: str = args.save_path
-        self.load_path: str = args.load_path
+        self.save_path: str = config["save_path"]
+        self.load_path: str = config["load_path"]
 
-        self.learn: bool = args.learn
-        self.human_speed: bool = args.human_speed
-        self.pve: bool = args.pve
-        self.grid_size: int = args.grid_size
+        self.learn: bool = config["learn"]
+        self.human_speed: bool = config["human_speed"]
+        self.pve: bool = config["pve"]
+        self.grid_size: int = config["grid_size"]
+        self.difficulty: str = config["difficulty"].lower()
 
         # Initialize main game, when in PVE mode we main game will be used
         # by the player and secondary game will be used by the AI
         # When NOT in pve mode, then it's only the AI that will use it.
         self.main_game = SnakeGame(width=self.grid_size, height=self.grid_size)
-        self.visuals: bool = args.visuals
-        self.screen = None
-        self.clock = None
-        self.cell_size = CELL_SIZE
+        self.visuals: bool = config["visuals"]
 
         if self.pve:
             self.secondary_game = SnakeGame(width=self.grid_size, height=self.grid_size)
             self.human_speed = True
             self.visuals = True
+
         if self.visuals:
-            self._init_pygame()
-        if self.human_speed and not self.visuals:
-            self.clock = pygame.time.Clock()
+            self.display = Display.get_instance()
+            self.display.init_game(self)
+
         self.dx, self.dy = 0.0, 0.0
         snake_ai.init(
             alpha=0.01,
@@ -52,7 +71,8 @@ class Learn2Slither:
             save_dir = os.path.dirname(os.path.abspath(self.save_path))
             if not os.path.isdir(save_dir):
                 raise ValueError(f"Save path directory does not exist: {save_dir}")
-
+        if self.difficulty in self.DIFFICULTY and not self.load_path:
+            self.load_path = self.DIFFICULTY[self.difficulty]
         if self.load_path:
             if not os.path.isfile(os.path.abspath(self.load_path)):
                 raise ValueError(f"Load path is not a file: {self.load_path}")
@@ -76,59 +96,11 @@ class Learn2Slither:
     def run(self):
         self._run_game()
 
-    def _init_pygame(self):
-        pygame.init()
-        game = self.main_game
-        # If we are playing in PVE mode, we need a larger display
-        # Otherwise we can just display one screen.
-
-        self.screen = (
-            pygame.display.set_mode(
-                (game.width * self.cell_size, game.height * self.cell_size)
-            )
-            if not self.pve
-            else pygame.display.set_mode(
-                (
-                    game.width * self.cell_size * 2,
-                    game.height * self.cell_size * 2,
-                )
-            )
-        )
-        self.clock = pygame.time.Clock()
-
     def _stop_pygame(self):
         if self.save_path:
             self._save_contents()
         if self.visuals:
-            pygame.quit()
-
-    def _render_game(self):
-        if not self.visuals:
-            return
-        self.screen.fill((0, 0, 0))
-        grid = self.main_game.get_state()
-        for y in range(self.main_game.height):
-            for x in range(self.main_game.width):
-                rect = pygame.Rect(
-                    x * self.cell_size,
-                    y * self.cell_size,
-                    self.cell_size,
-                    self.cell_size,
-                )
-                if grid[y][x] == 1:
-                    pygame.draw.rect(self.screen, (0, 200, 0), rect)
-                elif grid[y][x] == 2:
-                    pygame.draw.rect(self.screen, (0, 255, 0), rect)
-                elif grid[y][x] == 3:
-                    pygame.draw.rect(self.screen, (255, 0, 0), rect)
-                pygame.draw.rect(self.screen, (50, 50, 50), rect, 1)
-            font = pygame.font.SysFont(None, 24)
-        text = font.render(f"Size: {len(self.main_game.snake)}", True, (255, 255, 255))
-        self.screen.blit(
-            text,
-            (self.main_game.width * self.cell_size - text.get_width() - 5, 5),
-        )
-        pygame.display.flip()
+            self.display.quit()
 
     def _learn(
         self,
@@ -273,9 +245,9 @@ class Learn2Slither:
                     self.main_game.game_over = True
             if self.visuals:
                 self.main_game.render_terminal()
-                self._render_game()
+                self.display.render_game()
             if self.human_speed:
-                self.clock.tick(25)
+                self.display.tick()
             number_of_steps += 1
             if self.main_game.game_over:
                 current_run += 1

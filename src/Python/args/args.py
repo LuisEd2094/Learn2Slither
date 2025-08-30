@@ -16,6 +16,23 @@ def get_args():
     parser = argparse.ArgumentParser(
         prog='Learn2Slither',
     )
+
+    parser.add_argument(
+        "--menu",
+        type=str2bool,
+        nargs="?",
+        const=True,
+        default=False,
+        help="Whether to show the menu. Defaults to False.",
+    )
+    parser.add_argument(
+        "--difficulty",
+        type=str,
+        choices=["easy", "normal", "hard"],
+        default="normal",
+        help="Difficulty level. Choices are: easy, normal, hard. Defaults to normal.",
+    )
+
     parser.add_argument(
         "--sessions",
         type=int,
