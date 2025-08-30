@@ -22,9 +22,17 @@ def get_args():
         type=str2bool,
         nargs="?",
         const=True,
-        default=True,
-        help="Whether to show the menu. Defaults to True.",
+        default=False,
+        help="Whether to show the menu. Defaults to False.",
     )
+    parser.add_argument(
+        "--difficulty",
+        type=str,
+        choices=["easy", "normal", "hard"],
+        default="normal",
+        help="Difficulty level. Choices are: easy, normal, hard. Defaults to normal.",
+    )
+
     parser.add_argument(
         "--sessions",
         type=int,

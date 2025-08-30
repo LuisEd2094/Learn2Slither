@@ -19,6 +19,13 @@ class Learn2Slither:
         "pve": False,
         "grid_size": CELL_SIZE,
         "visuals": True,
+        "difficulty": None,
+    }
+
+    DIFFICULTY = {
+        "easy": "/home/luis/proyects/Learn2Slither/src/models/pve/easy.txt",
+        "normal": "/home/luis/proyects/Learn2Slither/src/models/pve/normal.txt",
+        "hard": "/home/luis/proyects/Learn2Slither/src/models/pve/hard.txt",
     }
 
     def __init__(self, args: Namespace):
@@ -34,6 +41,7 @@ class Learn2Slither:
         self.human_speed: bool = config["human_speed"]
         self.pve: bool = config["pve"]
         self.grid_size: int = config["grid_size"]
+        self.difficulty: str = config["difficulty"].lower()
 
         # Initialize main game, when in PVE mode we main game will be used
         # by the player and secondary game will be used by the AI
@@ -63,7 +71,8 @@ class Learn2Slither:
             save_dir = os.path.dirname(os.path.abspath(self.save_path))
             if not os.path.isdir(save_dir):
                 raise ValueError(f"Save path directory does not exist: {save_dir}")
-
+        if self.difficulty in self.DIFFICULTY and not self.load_path:
+            self.load_path = self.DIFFICULTY[self.difficulty]
         if self.load_path:
             if not os.path.isfile(os.path.abspath(self.load_path)):
                 raise ValueError(f"Load path is not a file: {self.load_path}")

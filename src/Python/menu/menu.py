@@ -7,6 +7,8 @@ from Python.learn_2_slither import Learn2Slither
 
 
 class Menu:
+    DIFFICULTY_LEVELS = {1: "easy", 2: "normal", 3: "hard"}
+
     def __init__(self):
         # Display also inits pygame
         self.display = Display.get_instance()
@@ -18,6 +20,7 @@ class Menu:
             "human_speed": False,
             "pve": False,
             "grid_size": 10,
+            "difficulty": 1,
         }
 
         self.items = list(self.options.keys())
@@ -36,6 +39,8 @@ class Menu:
                     text = ">>> START GAME <<<"
                 else:
                     value = self.options[item]
+                    if item == "difficulty":
+                        value = self.DIFFICULTY_LEVELS.get(value, "unknown")
                     text = f"{item}: {value}"
                 self.display.display_menu(text, i, color)
 
@@ -66,10 +71,13 @@ class Menu:
 
                     elif event.key in (pygame.K_LEFT, pygame.K_RIGHT):
                         current_item = self.items[self.selected_index]
-                        if current_item in ["sessions", "grid_size"]:
+                        if current_item in ["sessions", "grid_size", "difficulty"]:
                             self._modify_numeric(current_item, event.key)
             self.display.flip()
             self.display.tick()
+        self.options["difficulty"] = self.DIFFICULTY_LEVELS.get(
+            self.options["difficulty"], "unknown"
+        )
 
         l2s = Learn2Slither(Namespace(**self.options))
         l2s.run()
@@ -91,3 +99,5 @@ class Menu:
             self.options[item] = 1
         if item == "grid_size" and self.options[item] < 10:
             self.options[item] = 10
+        if item == "difficulty":
+            self.options[item] = max(1, min(3, self.options[item]))
