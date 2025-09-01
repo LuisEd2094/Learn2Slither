@@ -2,7 +2,6 @@ from argparse import Namespace
 
 import pygame
 
-from Python.constants import DARK_GREEN, LIGHT_GREEN
 from Python.display import Display
 from Python.learn_2_slither import Learn2Slither
 
@@ -31,19 +30,12 @@ class Menu:
 
     def run(self):
         while self.running:
-            self.display.fill()
-            # Draw menu items
-            for i, item in enumerate(self.items):
-                color = DARK_GREEN if i == self.selected_index else LIGHT_GREEN
-
-                if item == "START":
-                    text = ">>> START GAME <<<"
-                else:
-                    value = self.options[item]
-                    if item == "difficulty":
-                        value = self.DIFFICULTY_LEVELS.get(value, "unknown")
-                    text = f"{item}: {value}"
-                self.display.display_menu(text, i, color)
+            self.display.display_menu(
+                selected_index=self.selected_index,
+                items=self.items,
+                options=self.options,
+                difficulty_levels=self.DIFFICULTY_LEVELS,
+            )
 
             # Handle events
             for event in pygame.event.get():

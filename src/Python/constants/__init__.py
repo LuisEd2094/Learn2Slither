@@ -1,3 +1,35 @@
-from .constants import CELL_SIZE, DARK_GREEN, GAME_SPEED, LIGHT_GREEN, YELLOW_ORANGE
+from .constants import (
+    BACKGROUND_TILE,
+    BLACK_WHITE,
+    CELL_SIZE,
+    CYAN,
+    DARK_BLUE,
+    DARK_GRAY,
+    DARK_GREEN,
+    DARK_PURPLE,
+    GAME_SPEED,
+    LAVENDER,
+    LIGHT_BLUE,
+    LIGHT_GRAY,
+    LIGHT_GREEN,
+    LIGHT_PURPLE,
+    YELLOW_ORANGE,
+)
 
-__all__ = ["CELL_SIZE", "GAME_SPEED", "DARK_GREEN", "LIGHT_GREEN", "YELLOW_ORANGE"]
+__all__ = [
+    "CELL_SIZE",
+    "GAME_SPEED",
+    "DARK_GREEN",
+    "LIGHT_GREEN",
+    "YELLOW_ORANGE",
+    "BACKGROUND_TILE",
+    "LIGHT_BLUE",
+    "DARK_BLUE",
+    "CYAN",
+    "LIGHT_PURPLE",
+    "DARK_PURPLE",
+    "LAVENDER",
+    "LIGHT_GRAY",
+    "DARK_GRAY",
+    "BLACK_WHITE",
+]

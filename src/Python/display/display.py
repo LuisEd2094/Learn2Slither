@@ -2,7 +2,13 @@ import sys
 
 import pygame
 
-from Python.constants import GAME_SPEED, YELLOW_ORANGE
+from Python.constants import (
+    BACKGROUND_TILE,
+    GAME_SPEED,
+    LIGHT_BLUE,
+    LIGHT_GREEN,
+    YELLOW_ORANGE,
+)
 from Python.learn_2_slither import Learn2Slither
 
 
@@ -24,6 +30,14 @@ class Display:
         self.running = True
         self.clock_tick = 30
         self.human_speed = True
+        self.background = self.get_background(BACKGROUND_TILE)
+
+    def get_background(self, file):
+        background_tile = pygame.image.load(file)
+        screen_w, screen_h = self.screen.get_size()
+        background = pygame.Surface((screen_w, screen_h))
+        background.blit(background_tile, (0, 0))
+        return background
 
     @classmethod
     def get_instance(cls):
@@ -79,7 +93,21 @@ class Display:
     def flip(self):
         pygame.display.flip()
 
-    def display_menu(self, text, i, color):
+    def display_menu(self, selected_index, items, options, difficulty_levels):
+        self.screen.blit(self.background, (0, 0))
+        for i, item in enumerate(items):
+            color = LIGHT_BLUE if i == selected_index else LIGHT_GREEN
+
+            if item == "START":
+                text = ">>> START GAME <<<"
+            else:
+                value = options[item]
+                if item == "difficulty":
+                    value = difficulty_levels.get(value, "unknown")
+                text = f"{item}: {value}"
+            self.write_menu_option(text, i, color)
+
+    def write_menu_option(self, text, i, color):
         self.draw_text(text, 60, 60 + i * 40, color)
 
     def init_game(self, l2s: Learn2Slither):
@@ -100,7 +128,7 @@ class Display:
         self.offset_y = (screen_h - self.main_game.height * self.cell_size) // 2
 
     def render_game(self):
-        self.screen.fill((0, 0, 0))
+        self.screen.blit(self.background, (0, 0))
         grid = self.main_game.get_state()
         for y in range(self.main_game.height):
             for x in range(self.main_game.width):
