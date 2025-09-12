@@ -29,8 +29,9 @@ class Display:
         self.screen = pygame.display.set_mode((1024, 768))
         self.clock = pygame.time.Clock()
         self.running = True
-        self.clock_tick = 30
+        self.clock_tick = GAME_SPEED
         self.human_speed = True
+        self._time_accumulator = 0
         self.background = self.get_background(BACKGROUND_TILE)
 
     def get_background(self, file):
@@ -116,7 +117,6 @@ class Display:
         self.visuals = l2s.visuals
         self.main_game = l2s.main_game
         self.secondary_game = l2s.secondary_game
-        self.clock_tick = GAME_SPEED
         self.pve = l2s.pve
         self.l2s = l2s
 
@@ -157,7 +157,7 @@ class Display:
                 screen_h - self.secondary_game.height * self.cell_size_right
             ) // 2
 
-    def _update_board(self, game: SnakeGame, offset_x, offset_y, cell_size):
+    def _update_board(self, game: SnakeGame, offset_x, offset_y, cell_size, text_x):
         grid = game.get_state()
         for y in range(game.height):
             for x in range(game.width):
@@ -176,7 +176,7 @@ class Display:
                 pygame.draw.rect(self.screen, (50, 50, 50), rect, 1)
 
         text = f"Size: {len(game.snake)}"
-        self.draw_text(text, 5, 5, YELLOW_ORANGE)
+        self.draw_text(text, text_x, 5, YELLOW_ORANGE)
 
     def render_game(self):
         self.screen.blit(self.background, (0, 0))
@@ -184,7 +184,7 @@ class Display:
         if not self.pve:
             # --- PvE: single game ---
             self._update_board(
-                self.main_game, self.offset_x, self.offset_y, self.cell_size
+                self.main_game, self.offset_x, self.offset_y, self.cell_size, 5
             )
 
         else:
@@ -194,12 +194,14 @@ class Display:
                 self.offset_x_left,
                 self.offset_y_left,
                 self.cell_size_left,
+                5,
             )
             self._update_board(
                 self.secondary_game,
                 self.offset_x_right,
                 self.offset_y_right,
                 self.cell_size_right,
+                self.screen.get_width() // 2 + 5,
             )
 
         pygame.display.flip()
@@ -210,7 +212,17 @@ class Display:
     def tick(self):
         if not self.human_speed:
             return
-        self.clock.tick(self.clock_tick)
+        dt = self.clock.tick(60) / 1000.0
+        self._time_accumulator += dt
+
+        steps = 0
+        step_interval = 1.0 / self.clock_tick
+
+        while self._time_accumulator >= step_interval:
+            self._time_accumulator -= step_interval
+            steps += 1
+
+        return steps
 
     def quit(self):
         pygame.quit()

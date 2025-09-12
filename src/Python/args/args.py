@@ -22,7 +22,7 @@ def get_args():
         type=str2bool,
         nargs="?",
         const=True,
-        default=False,
+        default=True,
         help="Whether to show the menu. Defaults to False.",
     )
     parser.add_argument(

@@ -1,6 +1,7 @@
 import os
 from argparse import Namespace
 
+import pygame
 import snake_ai
 
 from Python.constants import CELL_SIZE
@@ -48,7 +49,18 @@ class Learn2Slither:
         # When NOT in pve mode, then it's only the AI that will use it.
         self.main_game = SnakeGame(width=self.grid_size, height=self.grid_size)
         self.visuals: bool = config["visuals"]
-
+        self.display: Display = None
+        self.cell_size: int = CELL_SIZE
+        self.offset_x: int = 0
+        self.offset_y: int = 0
+        self.cell_size_left: int = CELL_SIZE
+        self.offset_x_left: int = 0
+        self.offset_y_left: int = 0
+        self.cell_size_right: int = CELL_SIZE
+        self.offset_x_right: int = 0
+        self.offset_y_right: int = 0
+        self.clock_tick: int = 100
+        self.secondary_game = None
         if self.pve:
             self.secondary_game = SnakeGame(width=self.grid_size, height=self.grid_size)
             self.human_speed = True
@@ -93,14 +105,83 @@ class Learn2Slither:
                 data.append((int(state), float(v1), float(v2), float(v3)))
         snake_ai.load_q_table(data)
 
+    ###############
+    # RUN METHODS #
+    ###############
+
     def run(self):
-        self._run_game()
+        if not self.pve:
+            self._run_only_ai()
+        else:
+            self._run_pve()
 
     def _stop_pygame(self):
         if self.save_path:
             self._save_contents()
         if self.visuals:
             self.display.quit()
+
+    def _run_pve(self):
+        game_over = False
+        reset = False
+        user_game = self.secondary_game
+        ai_game = self.main_game
+        while not game_over:
+            steps = self.display.tick()
+            for _ in range(steps):
+                game_over, reset = self._play_game_user(user_game)
+                if game_over:
+                    break
+                game_over = self._play_move_ai(ai_game)
+                if reset:
+                    user_game.reset()
+                    ai_game.reset()
+                    reset = False
+                self.display.render_game()
+        self._stop_pygame()
+
+    ################
+    # USER METHODS #
+    ################
+
+    def _play_game_user(
+        self,
+        game: SnakeGame,
+    ):
+        game_over = False
+        reset = False
+        direction_map = {
+            pygame.K_UP: Direction.UP,
+            pygame.K_DOWN: Direction.DOWN,
+            pygame.K_LEFT: Direction.LEFT,
+            pygame.K_RIGHT: Direction.RIGHT,
+        }
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                game_over = True
+            elif event.type == pygame.KEYDOWN:
+                if event.key in direction_map:
+                    game.set_direction(direction_map[event.key])
+                elif event.key == pygame.K_r:
+                    reset = True
+                elif event.key == pygame.K_q:
+                    game_over = True
+
+        # Move snake
+        game.step()
+
+        return (game_over or game.get_game_over()), reset
+
+    ####################
+    # AI LOGIC METHODS #
+    ####################
+
+    def _play_move_ai(self, game: SnakeGame):
+        self._set_next_move_ai(game)
+        game.step()
+
+        return game.get_game_over()
 
     def _learn(
         self,
@@ -183,7 +264,7 @@ class Learn2Slither:
 
         return reward
 
-    def _run_game(self):
+    def _run_only_ai(self):
         current_run = 0
         number_of_steps = 0
         max_snake_len = 0
@@ -217,7 +298,7 @@ class Learn2Slither:
             # Run the next move
             self.main_game.step()
 
-            done = self.main_game.get_done()
+            done = self.main_game.get_game_over()
 
             max_snake_len = max(max_snake_len, self.main_game.get_snake_len())
 

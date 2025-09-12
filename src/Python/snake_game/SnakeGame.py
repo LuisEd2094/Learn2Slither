@@ -179,7 +179,7 @@ class SnakeGame:
     def get_snake_len(self):
         return len(self.snake)
 
-    def get_done(self):
+    def get_game_over(self):
         return self.game_over
 
     def set_direction(self, new_direction: Direction):
