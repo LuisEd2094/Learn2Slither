@@ -30,19 +30,12 @@ class Menu:
 
     def run(self):
         while self.running:
-            self.display.fill()
-            # Draw menu items
-            for i, item in enumerate(self.items):
-                color = (255, 255, 0) if i == self.selected_index else (255, 255, 255)
-
-                if item == "START":
-                    text = ">>> START GAME <<<"
-                else:
-                    value = self.options[item]
-                    if item == "difficulty":
-                        value = self.DIFFICULTY_LEVELS.get(value, "unknown")
-                    text = f"{item}: {value}"
-                self.display.display_menu(text, i, color)
+            self.display.display_menu(
+                selected_index=self.selected_index,
+                items=self.items,
+                options=self.options,
+                difficulty_levels=self.DIFFICULTY_LEVELS,
+            )
 
             # Handle events
             for event in pygame.event.get():
@@ -71,7 +64,11 @@ class Menu:
 
                     elif event.key in (pygame.K_LEFT, pygame.K_RIGHT):
                         current_item = self.items[self.selected_index]
-                        if current_item in ["sessions", "grid_size", "difficulty"]:
+                        if current_item in [
+                            "sessions",
+                            "grid_size",
+                            "difficulty",
+                        ]:
                             self._modify_numeric(current_item, event.key)
             self.display.flip()
             self.display.tick()

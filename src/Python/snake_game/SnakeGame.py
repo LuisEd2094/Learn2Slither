@@ -9,6 +9,13 @@ class Direction(Enum):
     RIGHT = (1, 0)
 
 
+class Objects(Enum):
+    EMPTY = 0
+    SNAKE = 1
+    GREEN_APPLE = 2
+    RED_APPLE = 3
+
+
 class SnakeGame:
     """
     A grid-based Snake game environment with two types of apples:
@@ -102,9 +109,12 @@ class SnakeGame:
             if all(0 <= x < self.width and 0 <= y < self.height for x, y in snake_body):
                 self.snake = snake_body
                 # Initialize grid in memory
-                self.grid = [[0 for _ in range(self.width)] for _ in range(self.height)]
+                self.grid = [
+                    [Objects.EMPTY.value for _ in range(self.width)]
+                    for _ in range(self.height)
+                ]
                 for x, y in self.snake:
-                    self.grid[y][x] = 1
+                    self.grid[y][x] = Objects.SNAKE.value
                 self.spawn_apples()  # spawns both apples into the grid
                 self.game_over = False
                 return
@@ -114,9 +124,11 @@ class SnakeGame:
         self.snake = [(mid_x, mid_y), (mid_x - 1, mid_y), (mid_x - 2, mid_y)]
         self.direction = Direction.RIGHT
         self.pending_direction = self.direction
-        self.grid = [[0 for _ in range(self.width)] for _ in range(self.height)]
+        self.grid = [
+            [Objects.EMPTY.value for _ in range(self.width)] for _ in range(self.height)
+        ]
         for x, y in self.snake:
-            self.grid[y][x] = 1
+            self.grid[y][x] = Objects.SNAKE.value
         self.spawn_apples()
         self.game_over = False
 
@@ -129,22 +141,26 @@ class SnakeGame:
             (x, y)
             for x in range(self.width)
             for y in range(self.height)
-            if self.grid[y][x] == 0 and (x, y) != getattr(self, "red_apple", None)
+            if self.grid[y][x] == Objects.EMPTY.value
+            and (x, y) != getattr(self, "red_apple", None)
         ]
         if empty_cells:
             self.green_apple = random.choice(empty_cells)
-            self.grid[self.green_apple[1]][self.green_apple[0]] = 2
+            self.grid[self.green_apple[1]][
+                self.green_apple[0]
+            ] = Objects.GREEN_APPLE.value
 
     def spawn_red_apple(self):
         empty_cells = [
             (x, y)
             for x in range(self.width)
             for y in range(self.height)
-            if self.grid[y][x] == 0 and (x, y) != getattr(self, "green_apple", None)
+            if self.grid[y][x] == Objects.EMPTY.value
+            and (x, y) != getattr(self, "green_apple", None)
         ]
         if empty_cells:
             self.red_apple = random.choice(empty_cells)
-            self.grid[self.red_apple[1]][self.red_apple[0]] = 3
+            self.grid[self.red_apple[1]][self.red_apple[0]] = Objects.RED_APPLE.value
         else:
             self.red_apple = None
 
@@ -163,7 +179,7 @@ class SnakeGame:
     def get_snake_len(self):
         return len(self.snake)
 
-    def get_done(self):
+    def get_game_over(self):
         return self.game_over
 
     def set_direction(self, new_direction: Direction):
@@ -176,7 +192,7 @@ class SnakeGame:
 
     def _pop_snake(self):
         tail = self.snake.pop()
-        self.grid[tail[1]][tail[0]] = 0
+        self.grid[tail[1]][tail[0]] = Objects.EMPTY.value
 
     def get_new_head(self, direction):
         head_x, head_y = self.snake[0]
@@ -203,7 +219,7 @@ class SnakeGame:
             return
 
         self.snake.insert(0, new_head)
-        self.grid[new_head[1]][new_head[0]] = 1
+        self.grid[new_head[1]][new_head[0]] = Objects.SNAKE.value
         if new_head == self.green_apple:
             self.spawn_green_apple()
         elif new_head == self.red_apple:

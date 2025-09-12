@@ -1,3 +1,3 @@
-from .SnakeGame import Direction, SnakeGame
+from .SnakeGame import Direction, Objects, SnakeGame
 
-__all__ = ["SnakeGame", "Direction"]
+__all__ = ["SnakeGame", "Direction", "Objects"]
