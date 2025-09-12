@@ -10,6 +10,7 @@ from Python.constants import (
     YELLOW_ORANGE,
 )
 from Python.learn_2_slither import Learn2Slither
+from Python.snake_game import Objects, SnakeGame
 
 
 class Display:
@@ -114,40 +115,93 @@ class Display:
         self.human_speed = l2s.human_speed
         self.visuals = l2s.visuals
         self.main_game = l2s.main_game
+        self.secondary_game = l2s.secondary_game
         self.clock_tick = GAME_SPEED
         self.pve = l2s.pve
         self.l2s = l2s
 
         # compute cell size so grid fits screen
         screen_w, screen_h = self.screen.get_size()
-        self.cell_size = min(
-            screen_w // self.main_game.width,
-            screen_h // self.main_game.height,
-        )
-        self.offset_x = (screen_w - self.main_game.width * self.cell_size) // 2
-        self.offset_y = (screen_h - self.main_game.height * self.cell_size) // 2
+        if not self.pve:
+            self.cell_size = min(
+                screen_w // self.main_game.width,
+                screen_h // self.main_game.height,
+            )
+            self.offset_x = (screen_w - self.main_game.width * self.cell_size) // 2
+            self.offset_y = (screen_h - self.main_game.height * self.cell_size) // 2
+        else:
+            half_w = screen_w // 2
 
-    def render_game(self):
-        self.screen.blit(self.background, (0, 0))
-        grid = self.main_game.get_state()
-        for y in range(self.main_game.height):
-            for x in range(self.main_game.width):
+            # left game
+            self.cell_size_left = min(
+                half_w // self.main_game.width,
+                screen_h // self.main_game.height,
+            )
+            self.offset_x_left = (
+                half_w - self.main_game.width * self.cell_size_left
+            ) // 2
+            self.offset_y_left = (
+                screen_h - self.main_game.height * self.cell_size_left
+            ) // 2
+
+            # right game
+            self.cell_size_right = min(
+                half_w // self.secondary_game.width,
+                screen_h // self.secondary_game.height,
+            )
+            self.offset_x_right = (
+                half_w
+                + (half_w - self.secondary_game.width * self.cell_size_right) // 2
+            )
+            self.offset_y_right = (
+                screen_h - self.secondary_game.height * self.cell_size_right
+            ) // 2
+
+    def _update_board(self, game: SnakeGame, offset_x, offset_y, cell_size):
+        grid = game.get_state()
+        for y in range(game.height):
+            for x in range(game.width):
                 rect = pygame.Rect(
-                    self.offset_x + x * self.cell_size,
-                    self.offset_y + y * self.cell_size,
-                    self.cell_size,
-                    self.cell_size,
+                    offset_x + x * cell_size,
+                    offset_y + y * cell_size,
+                    cell_size,
+                    cell_size,
                 )
-                if grid[y][x] == 1:
+                if grid[y][x] == Objects.SNAKE.value:
                     pygame.draw.rect(self.screen, (0, 200, 0), rect)
-                elif grid[y][x] == 2:
+                elif grid[y][x] == Objects.GREEN_APPLE.value:
                     pygame.draw.rect(self.screen, (0, 255, 0), rect)
-                elif grid[y][x] == 3:
+                elif grid[y][x] == Objects.RED_APPLE.value:
                     pygame.draw.rect(self.screen, (255, 0, 0), rect)
                 pygame.draw.rect(self.screen, (50, 50, 50), rect, 1)
 
-        text = f"Size: {len(self.main_game.snake)}"
+        text = f"Size: {len(game.snake)}"
         self.draw_text(text, 5, 5, YELLOW_ORANGE)
+
+    def render_game(self):
+        self.screen.blit(self.background, (0, 0))
+
+        if not self.pve:
+            # --- PvE: single game ---
+            self._update_board(
+                self.main_game, self.offset_x, self.offset_y, self.cell_size
+            )
+
+        else:
+            # --- PvP: two games side by side ---
+            self._update_board(
+                self.main_game,
+                self.offset_x_left,
+                self.offset_y_left,
+                self.cell_size_left,
+            )
+            self._update_board(
+                self.secondary_game,
+                self.offset_x_right,
+                self.offset_y_right,
+                self.cell_size_right,
+            )
+
         pygame.display.flip()
 
     def render_menu(self):
