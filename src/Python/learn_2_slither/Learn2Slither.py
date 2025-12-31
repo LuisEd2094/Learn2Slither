@@ -1,5 +1,4 @@
 import os
-import statistics
 from argparse import Namespace
 
 import numpy as np
@@ -75,7 +74,7 @@ class Learn2Slither:
 
         self.dx, self.dy = 0.0, 0.0
         # Movement tracking for features
-        self.head_history = []
+
         self.last_heading = self.main_game.get_heading()
         # Apple memory (relative direction last seen)
         self.mem_green_dirs: set[str] = set()
@@ -246,10 +245,7 @@ class Learn2Slither:
 
             self.main_game.get_snake_view()
             prev_heading = self.main_game.get_heading()
-            prev_snake_head = self.main_game.get_snake_head()
             # seed history if empty
-            if not self.head_history or self.head_history[-1] != prev_snake_head:
-                self.head_history.append(prev_snake_head)
             prev_len = self.main_game.get_snake_len()
             prev_head_x, prev_head_y = self.main_game.get_snake_head()
             frame_iteration = 0
@@ -295,11 +291,9 @@ class Learn2Slither:
                 if not done:
                     _ = self.main_game.get_snake_view()
                     new_heading = self.main_game.get_heading()
-                    new_snake_head = self.main_game.get_snake_head()
                     new_length = self.main_game.get_snake_len()
                     # update movement tracking
                     self.last_heading = new_heading
-                    self.head_history.append(new_snake_head)
                     new_features = self.agent.get_state(self.main_game)
                 else:
                     new_length = self.main_game.get_snake_len()
@@ -344,8 +338,6 @@ class Learn2Slither:
                 self.best_fitness = max(self.best_fitness, fitness)
 
                 self.main_game.reset()
-                # reset movement tracking
-                self.head_history = []
                 self.last_heading = self.main_game.get_heading()
                 # keep apple memory across episodes? reset to None to avoid stale info
                 self.mem_green_dirs = set()
@@ -425,16 +417,6 @@ class Learn2Slither:
         direction = self._action_idx_to_direction(heading, action_idx)
         game.set_direction(direction)
         return action_idx
-
-    def _compute_move_index(self) -> float:
-        if len(self.head_history) < 2:
-            return 1.0
-        last_coords = self.head_history[-10:]
-        xs = [p[0] for p in last_coords]
-        ys = [p[1] for p in last_coords]
-        std_x = statistics.pstdev(xs) if len(xs) > 1 else 0.0
-        std_y = statistics.pstdev(ys) if len(ys) > 1 else 0.0
-        return (std_x + std_y) / (2.0 * max(1, self.grid_size))
 
     def _compute_last_move_flags(
         self, prev_heading, current_heading
