@@ -1,4 +1,3 @@
-CELL_SIZE = 30
 GAME_SPEED = 10
 
 DARK_GREEN = [(0, 128, 0), (50, 205, 50), (144, 238, 144)]
@@ -20,5 +19,45 @@ BLACK_WHITE = [(0, 0, 0), (255, 255, 255)]
 
 
 BACKGROUND_TILE = (
-    "/home/luis/proyects/Learn2Slither/src/assets/images/background/flowers.png"
+    "/home/luis/proyects/Learn2Slither/assets/images/background/flowers.png"
 )
+
+FONT = "/home/luis/proyects/Learn2Slither/assets/fonts/PressStart2P-Regular.ttf"
+
+
+# Game Configuration
+GAME_GRID_SIZE = 10
+MAX_STEPS_PER_EPISODE = 1500
+
+# Model Paths
+DEFAULT_SAVE_PATH = "model/simple_dqn.pt"
+DEFAULT_LOAD_PATH = None
+
+# DQN Network Configuration
+STATE_SIZE = 14
+ACTION_SIZE = 3
+HIDDEN_SIZE = 256
+
+# DQN Training Parameters
+DQN_LEARNING_RATE = 0.001
+DQN_GAMMA = 0.9
+DQN_BATCH_SIZE = 1000
+DQN_MEMORY_SIZE = 100_000
+TARGET_NETWORK_UPDATE_FREQ = 50
+
+# Learning Rate Scheduler Parameters
+LR_SCHEDULER_STEP_SIZE = 100
+LR_SCHEDULER_GAMMA = 0.8
+
+# Exploration Parameters
+EPSILON_START = 1.0
+EPSILON_MIN = 0.01
+EPSILON_DECAY = 0.9995
+
+# Rewards
+REWARD_FOOD_EATEN = 10
+REWARD_RED_APPLE_EATEN = -5
+REWARD_DEATH = -10
+REWARD_NEUTRAL = 0
+
+GREEN_APPLE_TO_SPAWN = 2
