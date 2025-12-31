@@ -2,6 +2,7 @@ from argparse import Namespace
 
 import pygame
 
+from Python.constants.constants import DEFAULT_LOAD_PATH, DEFAULT_SAVE_PATH
 from Python.display import Display
 from Python.learn_2_slither import Learn2Slither
 
@@ -18,9 +19,12 @@ class Menu:
             "sessions": 10,
             "learn": False,
             "human_speed": False,
+            "visuals": True,
             "pve": False,
             "grid_size": 10,
             "difficulty": 1,
+            "save_path": DEFAULT_SAVE_PATH,
+            "load_path": DEFAULT_LOAD_PATH,
         }
 
         self.items = list(self.options.keys())

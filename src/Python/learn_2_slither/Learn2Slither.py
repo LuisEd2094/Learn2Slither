@@ -1,62 +1,62 @@
 import os
+import statistics
 from argparse import Namespace
 
+import numpy as np
 import pygame
-import snake_ai
 
-from Python.constants import CELL_SIZE
+from Python.constants.constants import (
+    ACTION_SIZE,
+    DQN_BATCH_SIZE,
+    DQN_GAMMA,
+    DQN_LEARNING_RATE,
+    DQN_MEMORY_SIZE,
+    EPSILON_MIN,
+    EPSILON_START,
+    GAME_GRID_SIZE,
+    HIDDEN_SIZE,
+    MAX_STEPS_PER_EPISODE,
+    REWARD_DEATH,
+    REWARD_FOOD_EATEN,
+    REWARD_NEUTRAL,
+    REWARD_RED_APPLE_EATEN,
+    STATE_SIZE,
+    TARGET_NETWORK_UPDATE_FREQ,
+)
 from Python.display import Display
+from Python.display.plotter import Plotter
 
 from ..snake_game import Direction, SnakeGame
+from .dqn import DQNAgent
 
 
 class Learn2Slither:
-    DEFAULTS = {
-        "sessions": 10,
-        "save_path": "",
-        "load_path": "",
-        "learn": True,
-        "human_speed": False,
-        "pve": False,
-        "grid_size": CELL_SIZE,
-        "visuals": True,
-        "difficulty": None,
-    }
-
-    DIFFICULTY = {
-        "easy": "/home/luis/proyects/Learn2Slither/src/models/pve/easy.txt",
-        "normal": "/home/luis/proyects/Learn2Slither/src/models/pve/normal.txt",
-        "hard": "/home/luis/proyects/Learn2Slither/src/models/pve/hard.txt",
-    }
-
     def __init__(self, args: Namespace):
-        config = {**self.DEFAULTS, **vars(args)}
-        self.sessions: int = config["sessions"]
+        self.sessions: int = args.sessions
         if self.sessions < 1:
             raise ValueError("Number of sessions must be at least 1.")
         # TODO check valid paths
-        self.save_path: str = config["save_path"]
-        self.load_path: str = config["load_path"]
+        self.save_path: str = args.save_path or ""
+        self.load_path: str = args.load_path or ""
 
-        self.learn: bool = config["learn"]
-        self.human_speed: bool = config["human_speed"]
-        self.pve: bool = config["pve"]
-        self.grid_size: int = config["grid_size"]
-        self.difficulty: str = config["difficulty"].lower()
+        self.learn: bool = args.learn
+        self.human_speed: bool = args.human_speed
+        self.pve: bool = args.pve
+        self.grid_size: int = args.grid_size
 
         # Initialize main game, when in PVE mode we main game will be used
         # by the player and secondary game will be used by the AI
         # When NOT in pve mode, then it's only the AI that will use it.
         self.main_game = SnakeGame(width=self.grid_size, height=self.grid_size)
-        self.visuals: bool = config["visuals"]
+        self.visuals: bool = args.visuals
         self.display: Display = None
-        self.cell_size: int = CELL_SIZE
+        self.GAME_GRID_SIZE: int = GAME_GRID_SIZE
         self.offset_x: int = 0
         self.offset_y: int = 0
-        self.cell_size_left: int = CELL_SIZE
+        self.GAME_GRID_SIZE_left: int = GAME_GRID_SIZE
         self.offset_x_left: int = 0
         self.offset_y_left: int = 0
-        self.cell_size_right: int = CELL_SIZE
+        self.GAME_GRID_SIZE_right: int = GAME_GRID_SIZE
         self.offset_x_right: int = 0
         self.offset_y_right: int = 0
         self.clock_tick: int = 100
@@ -69,41 +69,51 @@ class Learn2Slither:
         if self.visuals:
             self.display = Display.get_instance()
             self.display.init_game(self)
+        # Initialize live plotter (always on to observe progress)
+        self.plotter = Plotter(title="Snake DQN Progress")
 
         self.dx, self.dy = 0.0, 0.0
-        snake_ai.init(
-            alpha=0.01,
-            gamma=0.95,
-            epsilon=0.99,
-            epsilon_min=0.1,
-            epsilon_decay=0.995,
-        )
+        # Movement tracking for features
+        self.head_history = []
+        self.last_heading = self.main_game.get_heading()
+        # Apple memory (relative direction last seen)
+        self.mem_green_dirs: set[str] = set()
+        self.mem_red_dir: str | None = None
+        # Fitness tracking (length^2 * age)
+        self.episode_age = 0
+        self.best_fitness = 0
 
+        # Initialize DQN agent
+        self.agent = DQNAgent(
+            state_size=STATE_SIZE,
+            action_size=ACTION_SIZE,
+            hidden_size=HIDDEN_SIZE,
+            lr=DQN_LEARNING_RATE,
+            gamma=DQN_GAMMA,
+            epsilon=EPSILON_START,
+            epsilon_min=EPSILON_MIN,
+            epsilon_decay=0.9995,
+            batch_size=DQN_BATCH_SIZE,
+            memory_size=DQN_MEMORY_SIZE,
+            target_update=TARGET_NETWORK_UPDATE_FREQ,
+        )
+        print("Using PyTorch DQN for Q-function")
         if self.save_path:
             save_dir = os.path.dirname(os.path.abspath(self.save_path))
             if not os.path.isdir(save_dir):
                 raise ValueError(f"Save path directory does not exist: {save_dir}")
-        if self.difficulty in self.DIFFICULTY and not self.load_path:
-            self.load_path = self.DIFFICULTY[self.difficulty]
         if self.load_path:
             if not os.path.isfile(os.path.abspath(self.load_path)):
                 raise ValueError(f"Load path is not a file: {self.load_path}")
             self._load_contents()
 
     def _save_contents(self):
-        content = snake_ai.get_q_table()
-
-        with open(self.save_path, "w", encoding="utf-8") as f:
-            for state, v1, v2, v3 in content:
-                f.write(f"{state},{v1},{v2},{v3}\n")
+        self.agent.save(self.save_path)
+        print(f"Neural network model saved to {self.save_path}")
 
     def _load_contents(self):
-        data = []
-        with open(self.load_path, "r", encoding="utf-8") as f:
-            for line in f:
-                state, v1, v2, v3 = line.strip().split(",")
-                data.append((int(state), float(v1), float(v2), float(v3)))
-        snake_ai.load_q_table(data)
+        self.agent.load(self.load_path)
+        print(f"Neural network model loaded from {self.load_path}")
 
     ###############
     # RUN METHODS #
@@ -178,28 +188,11 @@ class Learn2Slither:
     ####################
 
     def _play_move_ai(self, game: SnakeGame):
+        pygame.event.get()  # Prevent window from becoming unresponsive
         self._set_next_move_ai(game)
         game.step()
 
         return game.get_game_over()
-
-    def _learn(
-        self,
-        prev_state,
-        action,
-        decay,
-        reward,
-        s_next,
-    ):
-        # Implement learning logic here
-
-        snake_ai.learn(
-            prev_state,
-            action,
-            reward,
-            decay,
-            s_next,
-        )
 
     def find_green_apple(self, prev_view, head_x, head_y):
         """Return the coordinates of the first green apple seen, or None."""
@@ -219,109 +212,118 @@ class Learn2Slither:
 
         return None
 
-    def calculate_based_on_move_to_apple(self, prev_view, prev_head_x, prev_head_y):
-        apple_pos_prev = self.find_green_apple(prev_view, prev_head_x, prev_head_y)
-        reward = 0.0
-        if apple_pos_prev is not None:
-            head_x, head_y = self.main_game.get_snake_head()
-            prev_distance = abs(prev_head_x - apple_pos_prev[0]) + abs(
-                prev_head_y - apple_pos_prev[1]
-            )
-            new_distance = abs(head_x - apple_pos_prev[0]) + abs(
-                head_y - apple_pos_prev[1]
-            )
-
-            if new_distance < prev_distance:
-                reward += 0.1
-            elif new_distance > prev_distance:
-                reward -= 0.02
-        return reward
-
-    def _get_reward(self, prev_len, done, prev_head_x, prev_head_y, prev_view):
-        # Base reward for surviving, negative to avoid stalling
-
+    def _get_reward(self, prev_len, done, prev_red_apple=None):
+        """Centralized reward calculation - event based only."""
         if done:
-            reward = -1.0
+            reward = REWARD_DEATH
         else:
-            # Change in snake length
-            snake_len = self.main_game.get_snake_len()
-            delta_len = snake_len - prev_len
-            moved_to_apple = self.calculate_based_on_move_to_apple(
-                prev_view, prev_head_x, prev_head_y
-            )
-            if delta_len > 0:
-                # Reward grows with snake length
-                reward = 0.75
-            elif delta_len < 0:
-                # Penalty smaller if snake is big, bigger if small
-                reward = -0.40
-            elif moved_to_apple != 0.0:
-                reward = moved_to_apple
-            else:
-                reward = -0.1
-        # Keep it within -1.0 and 1.0
-        reward = max(-1.0, min(1.0, reward))
+            new_len = self.main_game.get_snake_len()
 
+            if new_len < prev_len:
+                # Red apple was eaten (snake shrank)
+                reward = REWARD_RED_APPLE_EATEN
+            elif new_len > prev_len:
+                # Green apple was eaten (snake grew)
+                reward = REWARD_FOOD_EATEN
+            else:
+                # No event, neutral reward
+                reward = REWARD_NEUTRAL
         return reward
 
     def _run_only_ai(self):
         current_run = 0
         number_of_steps = 0
         max_snake_len = 0
-        max_steps = 1000
+        max_steps = MAX_STEPS_PER_EPISODE
         current_steps = 0
-        decay = True
+        _ = True
         seen_states = set()
+        frame_iteration = 0
 
         while current_run < self.sessions:
-            # Get previous state information before AI moves
+            # Epsilon is now calculated dynamically in get_action() based on n_games
+
+            self.main_game.get_snake_view()
+            prev_heading = self.main_game.get_heading()
+            prev_snake_head = self.main_game.get_snake_head()
+            # seed history if empty
+            if not self.head_history or self.head_history[-1] != prev_snake_head:
+                self.head_history.append(prev_snake_head)
+            prev_len = self.main_game.get_snake_len()
+            prev_head_x, prev_head_y = self.main_game.get_snake_head()
+            frame_iteration = 0
+
+            # Get initial state from DQN agent
+            prev_features = self.agent.get_state(self.main_game)
+            prev_state_val = None
+
             if self.learn:
-                prev_view = self.main_game.get_snake_view()
-                prev_heading = self.main_game.get_heading()
-                prev_snake_head = self.main_game.get_snake_head()
-                prev_len = self.main_game.get_snake_len()
-                prev_head_x, prev_head_y = self.main_game.get_snake_head()
-                prev_state = snake_ai.get_state(
-                    prev_view, prev_heading, prev_snake_head
-                )
                 if current_run > (self.sessions // 4):
-                    decay = True
-                seen_states.add(
-                    prev_state.value()
-                )  # if State has .value() returning u64
-                # print(f"Unique states so far: {len(seen_states)}")
+                    _ = True
+                if prev_state_val is not None:
+                    seen_states.add(prev_state_val)
                 current_steps += 1
+                self.episode_age += 1
 
-            # Set next move for the AI in the game
-            action = self._set_next_move_ai(self.main_game)
+            # Use the DQN agent to get action
+            action_idx = self.agent.get_action(prev_features)
+            direction = self._action_idx_to_direction(prev_heading, action_idx)
+            self.main_game.set_direction(direction)
+            _ = action_idx
 
-            # Run the next move
+            # Store red apple position before step
+            prev_red_apple = self.main_game.red_apple
+
+            pygame.event.get()  # Prevent window from becoming unresponsive
             self.main_game.step()
+            frame_iteration += 1
 
             done = self.main_game.get_game_over()
 
-            max_snake_len = max(max_snake_len, self.main_game.get_snake_len())
+            # Fallback: check frame timeout to prevent infinite episodes
+            current_len = self.main_game.get_snake_len()
+            if not done and frame_iteration > 100 * max(1, current_len):
+                done = True
+
+            max_snake_len = max(max_snake_len, current_len)
 
             if self.learn:
-                reward = self._get_reward(
-                    prev_len, done, prev_head_x, prev_head_y, prev_view
+                reward = self._get_reward(prev_len, done, prev_red_apple)
+
+                _ = None
+                if not done:
+                    _ = self.main_game.get_snake_view()
+                    new_heading = self.main_game.get_heading()
+                    new_snake_head = self.main_game.get_snake_head()
+                    new_length = self.main_game.get_snake_len()
+                    # update movement tracking
+                    self.last_heading = new_heading
+                    self.head_history.append(new_snake_head)
+                    new_features = self.agent.get_state(self.main_game)
+                else:
+                    new_length = self.main_game.get_snake_len()
+                    new_features = np.zeros(
+                        STATE_SIZE, dtype=np.float32
+                    )  # Updated from 11 to 15
+
+                self.agent.remember(
+                    prev_features,
+                    action_idx,
+                    reward,
+                    new_features,
+                    done,
                 )
-                new_view = self.main_game.get_snake_view() if not done else None
-                new_heading = self.main_game.get_heading() if not done else None
-                new_snake_head = self.main_game.get_snake_head() if not done else None
-                new_state = (
-                    snake_ai.get_state(new_view, new_heading, new_snake_head)
-                    if not done
-                    else None
+                # Train immediately on this step (short memory)
+                self.agent.train_short_memory(
+                    prev_features, action_idx, reward, new_features, done
                 )
 
-                self._learn(
-                    prev_state=prev_state,
-                    action=action,
-                    reward=reward,
-                    s_next=new_state,
-                    decay=decay,
-                )
+                # Update state and tracking for next iteration
+                if not done:
+                    prev_features = new_features
+                    prev_len = new_length
+                    prev_heading = new_heading
+
                 if current_steps >= max_steps:
                     self.main_game.game_over = True
             if self.visuals:
@@ -332,11 +334,47 @@ class Learn2Slither:
             number_of_steps += 1
             if self.main_game.game_over:
                 current_run += 1
+
+                # Increment n_games for epsilon calculation (matching nn_test.py)
+                self.agent.n_games += 1
+
+                # Compute fitness (length^2 * age)
+                fitness = (max_snake_len**2) * self.episode_age
+                self.best_fitness = max(self.best_fitness, fitness)
+
                 self.main_game.reset()
+                # reset movement tracking
+                self.head_history = []
+                self.last_heading = self.main_game.get_heading()
+                # keep apple memory across episodes? reset to None to avoid stale info
+                self.mem_green_dirs = set()
+                self.mem_red_dir = None
+
+                # Train on entire memory buffer at end of episode (like reference)
+                if self.learn:
+                    self.agent.train_long_memory()
+
                 print(f"Session {current_run}/{self.sessions} completed.")
-                print("Number of states:", snake_ai.get_numstates())
+                print(f"Epsilon: {self.agent.epsilon:.4f}")
+                print(f"Loss: {self.agent.last_loss:.4f}")
+                print(f"Learning Rate: {self.agent.current_lr:.6f}")
+                if self.learn:
+                    print(f"Memory size: {len(self.agent.memory)}")
                 print("Number of steps:", number_of_steps)
                 print("Max snake length:", max_snake_len)
+                print(f"Fitness: {fitness} (best: {self.best_fitness})")
+                self.episode_age = 0
+                # Update live plot
+                try:
+                    self.plotter.update(
+                        max_snake_len,
+                        number_of_steps,
+                        self.agent.last_loss,
+                        self.agent.current_lr,
+                    )
+
+                except Exception:
+                    pass
                 max_snake_len = 0
                 number_of_steps = 0
                 current_steps = 0
@@ -344,13 +382,16 @@ class Learn2Slither:
         self._stop_pygame()
 
     def _get_direction_ai(self, state, heading):
-        self.dx, self.dy = snake_ai.act(state, heading)
+        # Return forward action (method kept for backwards compatibility)
+        self.dx, self.dy = heading
         for d in Direction:
             if d.value == (self.dx, self.dy):
                 direction = d
                 break
+        else:
+            direction = Direction.UP
 
-        action = snake_ai.get_action(heading, (self.dx, self.dy))
+        action = 0  # Forward action
         return direction, action
 
     def _predict_next_head(self, game, direction):
@@ -359,41 +400,100 @@ class Learn2Slither:
     def _would_collide(self, game, head):
         return game.would_colide(head)
 
+    def _action_idx_to_direction(self, heading, action_idx):
+        clock = [Direction.RIGHT, Direction.DOWN, Direction.LEFT, Direction.UP]
+        heading_to_idx = {d.value: i for i, d in enumerate(clock)}
+        current = heading_to_idx.get(heading, 0)
+        straight = clock[current]
+        left = clock[(current - 1) % 4]
+        right = clock[(current + 1) % 4]
+
+        if action_idx == 0:
+            return straight
+        if action_idx == 1:
+            return left
+        return right
+
     def _set_next_move_ai(self, game):
-        snake_view = game.get_snake_view()
+        # Get state features using DQN agent
+        features = self.agent.get_state(game)
         heading = game.get_heading()
-        snake_head = game.get_snake_head()
-        prev_state = snake_ai.get_state(snake_view, heading, snake_head)
 
-        tried_actions = set()
-        last_action = None
-
-        while len(tried_actions) < 3:
-            direction, action = self._get_direction_ai(prev_state, heading)
-            last_action = action
-
-            if action in tried_actions:
-                # Already tested this action
-                continue
-
-            # Predict if this action will immediately die
-            next_head = self._predict_next_head(game, direction)
-            if self._would_collide(game, next_head):
-                # Learn negative reward
-                self._learn(
-                    prev_state=prev_state,
-                    action=action,
-                    reward=-1.0,
-                    s_next=None,
-                    decay=False,
-                )
-                tried_actions.add(action)
-                continue
-            else:
-                # Safe action found
-                game.set_direction(direction)
-                return action
-
-        # All actions kill: just pick the last one
+        # Get action from DQN
+        action_idx = self.agent.get_action(features)
+        direction = self._action_idx_to_direction(heading, action_idx)
         game.set_direction(direction)
-        return last_action
+        return action_idx
+
+    def _compute_move_index(self) -> float:
+        if len(self.head_history) < 2:
+            return 1.0
+        last_coords = self.head_history[-10:]
+        xs = [p[0] for p in last_coords]
+        ys = [p[1] for p in last_coords]
+        std_x = statistics.pstdev(xs) if len(xs) > 1 else 0.0
+        std_y = statistics.pstdev(ys) if len(ys) > 1 else 0.0
+        return (std_x + std_y) / (2.0 * max(1, self.grid_size))
+
+    def _compute_last_move_flags(
+        self, prev_heading, current_heading
+    ) -> tuple[bool, bool, bool]:
+        clock = [Direction.RIGHT, Direction.DOWN, Direction.LEFT, Direction.UP]
+        h2i = {d.value: i for i, d in enumerate(clock)}
+        prev_i = h2i.get(prev_heading, 0)
+        curr_i = h2i.get(current_heading, 0)
+        last_move_straight = prev_i == curr_i
+        # A left turn means current index moved -1 from previous (counter-clockwise)
+        last_move_left = curr_i == (prev_i - 1) % 4
+        # A right turn means current index moved +1 from previous (clockwise)
+        last_move_right = curr_i == (prev_i + 1) % 4
+        return last_move_straight, last_move_left, last_move_right
+
+    def _update_apple_memory_from_state(self, value: int) -> None:
+        # State encodes rays in order: forward(0..5), left(6..11), right(12..17), back(18..23)
+        # Now including back direction for cross-like vision
+        dirs = [("straight", 0), ("left", 6), ("right", 12), ("back", 18)]
+        for name, shift in dirs:
+            ray = (value >> shift) & 0b111111
+            obj_type = ray & 0b111
+            if obj_type == 3:  # green
+                self.mem_green_dirs.add(name)
+            elif obj_type == 4:  # red
+                self.mem_red_dir = name
+
+    def _compute_green_dirs_full_vision(
+        self, head: tuple[int, int], heading: tuple[int, int]
+    ) -> set[str]:
+        # Determine which relative directions (straight/left/right) have any green apples aligned
+        # Coordinate system: head=(x,y) with x as row, y as column.
+        # RIGHT increases y, LEFT decreases y, DOWN increases x, UP decreases x.
+        dirs = set()
+        hx, hy = head
+        apples = getattr(self.main_game, "green_apples", [])
+        clock = [Direction.RIGHT, Direction.DOWN, Direction.LEFT, Direction.UP]
+        h2i = {d.value: i for i, d in enumerate(clock)}
+        curr_i = h2i.get(heading, 0)
+        straight_abs = clock[curr_i]
+        left_abs = clock[(curr_i - 1) % 4]
+        right_abs = clock[(curr_i + 1) % 4]
+        back_abs = clock[(curr_i + 2) % 4]
+
+        for ax, ay in apples:
+            abs_dir = None
+            if ay == hy:  # same column → vertical alignment
+                abs_dir = Direction.DOWN if ax > hx else Direction.UP
+            elif ax == hx:  # same row → horizontal alignment
+                abs_dir = Direction.RIGHT if ay > hy else Direction.LEFT
+            else:
+                continue
+
+            if abs_dir == straight_abs:
+                dirs.add("straight")
+            elif abs_dir == left_abs:
+                dirs.add("left")
+            elif abs_dir == right_abs:
+                dirs.add("right")
+            elif abs_dir == back_abs:
+                dirs.add("back")
+
+        return dirs
