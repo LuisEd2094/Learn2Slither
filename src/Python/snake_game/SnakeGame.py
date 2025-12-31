@@ -179,10 +179,6 @@ class SnakeGame:
         """Return the current heading direction of the snake."""
         return self.direction.value
 
-    def get_green_apple(self):
-        """Return the first green apple position (for legacy callers)."""
-        return self.green_apples[0] if self.green_apples else None
-
     def get_green_apples(self):
         """Return all green apple positions."""
         return list(self.green_apples)
