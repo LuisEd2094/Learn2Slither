@@ -11,6 +11,7 @@ from .constants import (
     DQN_GAMMA,
     DQN_LEARNING_RATE,
     DQN_MEMORY_SIZE,
+    EPSILON_DECAY,
     EPSILON_MIN,
     EPSILON_START,
     FONT,
@@ -66,4 +67,5 @@ __all__ = [
     "REWARD_DEATH",
     "REWARD_NEUTRAL",
     "MAX_STEPS_PER_EPISODE",
+    "EPSILON_DECAY",
 ]
