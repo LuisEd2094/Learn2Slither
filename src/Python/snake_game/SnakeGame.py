@@ -78,22 +78,28 @@ class SnakeGame:
         self.reset()
 
     def reset(self):
+        """Reset the game board and place the snake in a valid starting position."""
+        snake_body = self._try_random_snake_placement()
+        if snake_body is None:
+            # Fallback: center the snake if random placement fails
+            snake_body = self._get_centered_snake()
+
+        self._setup_game(snake_body, self.direction)
+
+    def _try_random_snake_placement(self):
+        """Try to place snake at a random valid position.
+
+        Returns
+        -------
+        list | None
+            Snake body as list of (x, y) if successful, None if all attempts fail.
+        """
         max_attempts = 100
         for _ in range(max_attempts):
             head_x = random.randint(1, self.width - 1)
             head_y = random.randint(1, self.height - 1)
 
-            possible_dirs = []
-            # Check if snake fits 3 cells in each direction
-            if head_y - 2 >= 0:
-                possible_dirs.append(Direction.UP)
-            if head_y + 2 < self.height:
-                possible_dirs.append(Direction.DOWN)
-            if head_x - 2 >= 0:
-                possible_dirs.append(Direction.LEFT)
-            if head_x + 2 < self.width:
-                possible_dirs.append(Direction.RIGHT)
-
+            possible_dirs = self._get_valid_directions(head_x, head_y)
             if not possible_dirs:
                 continue
 
@@ -107,47 +113,97 @@ class SnakeGame:
                 (head_x - 2 * dx, head_y - 2 * dy),
             ]
 
-            # Make sure all segments are in bounds
             if all(0 <= x < self.width and 0 <= y < self.height for x, y in snake_body):
-                self.snake = snake_body
-                # Initialize grid in memory
-                self.grid = [
-                    [Objects.EMPTY.value for _ in range(self.width)]
-                    for _ in range(self.height)
-                ]
-                for x, y in self.snake:
-                    self.grid[y][x] = Objects.SNAKE.value
-                self.green_apples = []
-                self.red_apple = None
-                self.spawn_apples()  # spawns apples into the grid
-                self.game_over = False
-                return
+                return snake_body
 
-        # Fallback: center if random fails
+        return None
+
+    def _get_valid_directions(self, head_x, head_y):
+        """Get list of directions where snake can fit 3 cells.
+
+        Parameters
+        ----------
+        head_x : int
+            Head x coordinate.
+        head_y : int
+            Head y coordinate.
+
+        Returns
+        -------
+        list[Direction]
+            List of valid directions for this position.
+        """
+        possible_dirs = []
+        if head_y - 2 >= 0:
+            possible_dirs.append(Direction.UP)
+        if head_y + 2 < self.height:
+            possible_dirs.append(Direction.DOWN)
+        if head_x - 2 >= 0:
+            possible_dirs.append(Direction.LEFT)
+        if head_x + 2 < self.width:
+            possible_dirs.append(Direction.RIGHT)
+        return possible_dirs
+
+    def _get_centered_snake(self):
+        """Fallback: place snake in center of board.
+
+        Returns
+        -------
+        list[tuple[int, int]]
+            Snake body positioned at center.
+        """
         mid_x, mid_y = self.width // 2, self.height // 2
-        self.snake = [(mid_x, mid_y), (mid_x - 1, mid_y), (mid_x - 2, mid_y)]
         self.direction = Direction.RIGHT
         self.pending_direction = self.direction
+        return [(mid_x, mid_y), (mid_x - 1, mid_y), (mid_x - 2, mid_y)]
+
+    def _init_grid(self):
+        """Initialize an empty grid."""
         self.grid = [
             [Objects.EMPTY.value for _ in range(self.width)] for _ in range(self.height)
         ]
-        for x, y in self.snake:
+
+    def _place_snake_segments(self, snake):
+        """Place snake segments on the grid.
+
+        Parameters
+        ----------
+        snake : list[tuple[int, int]]
+            Snake body segments to place.
+        """
+        for x, y in snake:
             self.grid[y][x] = Objects.SNAKE.value
+
+    def _setup_game(self, snake, direction):
+        """Set up the game state with the given snake and direction.
+
+        Parameters
+        ----------
+        snake : list[tuple[int, int]]
+            Snake body to place.
+        direction : Direction
+            Initial direction for the snake.
+        """
+        self._init_grid()
+        self.snake = snake
+        self._place_snake_segments(snake)
+        self.direction = direction
+        self.pending_direction = direction
         self.green_apples = []
         self.red_apple = None
         self.spawn_apples()
         self.game_over = False
 
     def spawn_apples(self):
-        # Spawn green apples: 1 or 2 depending on config
+        """Spawn green apples and red apple in random empty cells."""
         num_green_apples = GREEN_APPLE_TO_SPAWN
         while len(self.green_apples) < num_green_apples:
             self._spawn_green_apple()
-        # ensure one red apple (if enabled)
         if self.red_apple is None:
             self.spawn_red_apple()
 
     def _spawn_green_apple(self):
+        """Spawn a single green apple in a random empty cell."""
         empty_cells = [
             (x, y)
             for x in range(self.width)
@@ -162,6 +218,7 @@ class SnakeGame:
             self.grid[pos[1]][pos[0]] = Objects.GREEN_APPLE.value
 
     def spawn_red_apple(self):
+        """Spawn a red apple in a random empty cell (not occupied by green apples)."""
         empty_cells = [
             (x, y)
             for x in range(self.width)
@@ -188,9 +245,11 @@ class SnakeGame:
         return self.snake[0] if self.snake else None
 
     def get_snake_len(self):
+        """Return the current length of the snake."""
         return len(self.snake)
 
     def get_game_over(self):
+        """Return whether the game is over."""
         return self.game_over
 
     def set_direction(self, new_direction: Direction):
@@ -202,15 +261,40 @@ class SnakeGame:
             self.pending_direction = new_direction
 
     def _pop_snake(self):
+        """Remove the tail segment from the snake."""
         tail = self.snake.pop()
         self.grid[tail[1]][tail[0]] = Objects.EMPTY.value
 
     def get_new_head(self, direction):
+        """Calculate the new head position in the given direction.
+
+        Parameters
+        ----------
+        direction : Direction
+            Direction to move the head.
+
+        Returns
+        -------
+        tuple[int, int]
+            New head position (x, y).
+        """
         head_x, head_y = self.snake[0]
         dx, dy = direction.value
         return (head_x + dx, head_y + dy)
 
     def would_colide(self, head):
+        """Check if a head position would result in collision with wall or snake.
+
+        Parameters
+        ----------
+        head : tuple[int, int]
+            The (x, y) position to check.
+
+        Returns
+        -------
+        bool
+            True if position results in collision, False otherwise.
+        """
         return (head in self.snake) or not (
             0 <= head[0] < self.width and 0 <= head[1] < self.height
         )
@@ -219,12 +303,9 @@ class SnakeGame:
         """Advance the game one tick in the current direction."""
         if self.game_over:
             return
-
-        # Apply pending direction
         self.direction = self.pending_direction
         new_head = self.get_new_head(self.direction)
 
-        # Check collisions
         if self.would_colide(new_head):
             self.game_over = True
             return
@@ -232,7 +313,6 @@ class SnakeGame:
         self.snake.insert(0, new_head)
         self.grid[new_head[1]][new_head[0]] = Objects.SNAKE.value
         if new_head in self.green_apples:
-            # Ate one green apple: grow (no pop tail) and respawn that apple
             idx = self.green_apples.index(new_head)
             self._respawn_green_apple(idx)
         elif new_head == self.red_apple:
@@ -247,7 +327,13 @@ class SnakeGame:
             self._pop_snake()
 
     def _respawn_green_apple(self, index: int):
-        # Find new empty cell for this green apple index
+        """Respawn a green apple at a new random location.
+
+        Parameters
+        ----------
+        index : int
+            The index of the green apple to respawn in the green_apples list.
+        """
         empty_cells = [
             (x, y)
             for x in range(self.width)
@@ -268,6 +354,24 @@ class SnakeGame:
         return self.grid
 
     def get_snake_view(self):
+        """Get the snake's line of sight in all cardinal directions.
+
+        Returns a 2D view where the snake is at the center and can see all cells
+        in its row and column until the board edges (walls marked as 'W').
+
+        Symbols:
+        - '.' = empty
+        - 'S' = snake
+        - 'G' = green apple
+        - 'R' = red apple
+        - 'W' = wall (board edge)
+        - ' ' = out of view
+
+        Returns
+        -------
+        list[list[str]]
+            2D grid view representation.
+        """
         symbols = {0: '.', 1: 'S', 2: 'G', 3: 'R'}
         head_x, head_y = self.snake[0]
         w, h = self.width, self.height
@@ -277,7 +381,6 @@ class SnakeGame:
         grid = self.get_state()
         hx, hy = head_x + 1, head_y + 1
 
-        # Print walls and visible cells
         for y in range(head_y, -1, -1):
             view[y + 1][hx] = symbols[grid[y][head_x]]
         view[0][hx] = 'W'
