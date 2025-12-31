@@ -27,7 +27,7 @@ FONT = "/home/luis/proyects/Learn2Slither/assets/fonts/PressStart2P-Regular.ttf"
 
 # Game Configuration
 GAME_GRID_SIZE = 10
-MAX_STEPS_PER_EPISODE = 1500
+MAX_STEPS_PER_EPISODE = 1000
 
 # Model Paths
 DEFAULT_SAVE_PATH = "model/simple_dqn.pt"

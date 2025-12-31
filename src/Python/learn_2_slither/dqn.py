@@ -11,7 +11,21 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
-from Python.constants.constants import LR_SCHEDULER_GAMMA, LR_SCHEDULER_STEP_SIZE
+from Python.constants.constants import (
+    ACTION_SIZE,
+    DQN_BATCH_SIZE,
+    DQN_GAMMA,
+    DQN_LEARNING_RATE,
+    DQN_MEMORY_SIZE,
+    EPSILON_DECAY,
+    EPSILON_MIN,
+    EPSILON_START,
+    HIDDEN_SIZE,
+    LR_SCHEDULER_GAMMA,
+    LR_SCHEDULER_STEP_SIZE,
+    STATE_SIZE,
+    TARGET_NETWORK_UPDATE_FREQ,
+)
 from Python.snake_game import Direction
 
 
@@ -60,18 +74,18 @@ class DQNAgent:
 
     def __init__(
         self,
-        state_size,
-        action_size=3,
-        hidden_size=256,
+        state_size=STATE_SIZE,
+        action_size=ACTION_SIZE,
+        hidden_size=HIDDEN_SIZE,
         hidden_sizes=None,
-        lr=0.001,
-        gamma=0.9,
-        epsilon=1.0,
-        epsilon_min=0.05,
-        epsilon_decay=0.9995,
-        batch_size=1000,
-        memory_size=100_000,
-        target_update=5,
+        lr=DQN_LEARNING_RATE,
+        gamma=DQN_GAMMA,
+        epsilon=EPSILON_START,
+        epsilon_min=EPSILON_MIN,
+        epsilon_decay=EPSILON_DECAY,
+        batch_size=DQN_BATCH_SIZE,
+        memory_size=DQN_MEMORY_SIZE,
+        target_update=TARGET_NETWORK_UPDATE_FREQ,
     ):
         self.state_size = state_size
         self.action_size = action_size
