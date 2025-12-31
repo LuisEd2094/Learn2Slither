@@ -4,6 +4,7 @@ import pygame
 
 from Python.constants import (
     BACKGROUND_TILE,
+    FONT,
     GAME_SPEED,
     LIGHT_BLUE,
     LIGHT_GREEN,
@@ -23,14 +24,14 @@ class Display:
             )
         pygame.init()
         self.font = pygame.font.Font(
-            "/home/luis/proyects/Learn2Slither/src/assets/fonts/PressStart2P-Regular.ttf",
+            FONT,
             28,
         )
         self.screen = pygame.display.set_mode((1024, 768))
         self.clock = pygame.time.Clock()
         self.running = True
-        self.clock_tick = GAME_SPEED
         self.human_speed = True
+        self.clock_tick = GAME_SPEED
         self._time_accumulator = 0
         self.background = self.get_background(BACKGROUND_TILE)
 
@@ -53,17 +54,13 @@ class Display:
         Draw text with a vertical gradient.
         colors: list of RGB tuples, e.g., [(255,0,0), (255,255,0)]
         """
-        # Render the text in white (for mask)
         text_surf = self.font.render(text, True, (255, 255, 255))
         text_rect = text_surf.get_rect(topleft=(x, y))
 
-        # Create a gradient surface same size as the text
         gradient = pygame.Surface(text_surf.get_size(), pygame.SRCALPHA)
         height = text_surf.get_height()
 
-        # Linear interpolation between colors
         for y_pos in range(height):
-            # Calculate which two colors to interpolate
             total_segments = len(colors) - 1
             segment_height = height / total_segments
             segment_index = int(y_pos // segment_height)
@@ -73,7 +70,6 @@ class Display:
             c1 = colors[segment_index]
             c2 = colors[segment_index + 1]
 
-            # Interpolation factor (0-1)
             factor = (y_pos - segment_index * segment_height) / segment_height
             r = int(c1[0] + (c2[0] - c1[0]) * factor)
             g = int(c1[1] + (c2[1] - c1[1]) * factor)
@@ -83,10 +79,8 @@ class Display:
                 gradient, (r, g, b), (0, y_pos), (text_surf.get_width(), y_pos)
             )
 
-        # Apply the text as a mask to the gradient
         gradient.blit(text_surf, (0, 0), None, pygame.BLEND_RGBA_MULT)
 
-        # Blit final gradient text to the screen
         self.screen.blit(gradient, text_rect)
 
     def fill(self, color=(0, 0, 0)):
@@ -120,52 +114,62 @@ class Display:
         self.pve = l2s.pve
         self.l2s = l2s
 
-        # compute cell size so grid fits screen
-        screen_w, screen_h = self.screen.get_size()
         if not self.pve:
-            self.cell_size = min(
-                screen_w // self.main_game.width,
-                screen_h // self.main_game.height,
-            )
-            self.offset_x = (screen_w - self.main_game.width * self.cell_size) // 2
-            self.offset_y = (screen_h - self.main_game.height * self.cell_size) // 2
+            self._init_single_game_layout()
         else:
-            half_w = screen_w // 2
+            self._init_pve_layout()
 
-            # left game
-            self.cell_size_left = min(
-                half_w // self.main_game.width,
-                screen_h // self.main_game.height,
-            )
-            self.offset_x_left = (
-                half_w - self.main_game.width * self.cell_size_left
-            ) // 2
-            self.offset_y_left = (
-                screen_h - self.main_game.height * self.cell_size_left
-            ) // 2
+    def _init_single_game_layout(self):
+        """Initialize grid layout for single-player mode."""
+        screen_w, screen_h = self.screen.get_size()
+        self.GAME_GRID_SIZE = min(
+            screen_w // self.main_game.width,
+            screen_h // self.main_game.height,
+        )
+        self.offset_x = (screen_w - self.main_game.width * self.GAME_GRID_SIZE) // 2
+        self.offset_y = (screen_h - self.main_game.height * self.GAME_GRID_SIZE) // 2
 
-            # right game
-            self.cell_size_right = min(
-                half_w // self.secondary_game.width,
-                screen_h // self.secondary_game.height,
-            )
-            self.offset_x_right = (
-                half_w
-                + (half_w - self.secondary_game.width * self.cell_size_right) // 2
-            )
-            self.offset_y_right = (
-                screen_h - self.secondary_game.height * self.cell_size_right
-            ) // 2
+    def _init_pve_layout(self):
+        """Initialize grid layout for player vs AI mode (side-by-side)."""
+        screen_w, screen_h = self.screen.get_size()
+        half_w = screen_w // 2
 
-    def _update_board(self, game: SnakeGame, offset_x, offset_y, cell_size, text_x):
+        # left game (player)
+        self.GAME_GRID_SIZE_left = min(
+            half_w // self.main_game.width,
+            screen_h // self.main_game.height,
+        )
+        self.offset_x_left = (
+            half_w - self.main_game.width * self.GAME_GRID_SIZE_left
+        ) // 2
+        self.offset_y_left = (
+            screen_h - self.main_game.height * self.GAME_GRID_SIZE_left
+        ) // 2
+
+        # right game (AI)
+        self.GAME_GRID_SIZE_right = min(
+            half_w // self.secondary_game.width,
+            screen_h // self.secondary_game.height,
+        )
+        self.offset_x_right = (
+            half_w
+            + (half_w - self.secondary_game.width * self.GAME_GRID_SIZE_right) // 2
+        )
+        self.offset_y_right = (
+            screen_h - self.secondary_game.height * self.GAME_GRID_SIZE_right
+        ) // 2
+
+    def _update_board(
+        self, game: SnakeGame, offset_x, offset_y, GAME_GRID_SIZE, text_x
+    ):
         grid = game.get_state()
         for y in range(game.height):
             for x in range(game.width):
                 rect = pygame.Rect(
-                    offset_x + x * cell_size,
-                    offset_y + y * cell_size,
-                    cell_size,
-                    cell_size,
+                    offset_x + x * GAME_GRID_SIZE,
+                    offset_y + y * GAME_GRID_SIZE,
+                    GAME_GRID_SIZE,
+                    GAME_GRID_SIZE,
                 )
                 if grid[y][x] == Objects.SNAKE.value:
                     pygame.draw.rect(self.screen, (0, 200, 0), rect)
@@ -182,25 +186,27 @@ class Display:
         self.screen.blit(self.background, (0, 0))
 
         if not self.pve:
-            # --- PvE: single game ---
             self._update_board(
-                self.main_game, self.offset_x, self.offset_y, self.cell_size, 5
+                self.main_game,
+                self.offset_x,
+                self.offset_y,
+                self.GAME_GRID_SIZE,
+                5,
             )
 
         else:
-            # --- PvP: two games side by side ---
             self._update_board(
                 self.main_game,
                 self.offset_x_left,
                 self.offset_y_left,
-                self.cell_size_left,
+                self.GAME_GRID_SIZE_left,
                 5,
             )
             self._update_board(
                 self.secondary_game,
                 self.offset_x_right,
                 self.offset_y_right,
-                self.cell_size_right,
+                self.GAME_GRID_SIZE_right,
                 self.screen.get_width() // 2 + 5,
             )
 

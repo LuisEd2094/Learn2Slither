@@ -1,62 +1,52 @@
 import os
 from argparse import Namespace
 
+import numpy as np
 import pygame
-import snake_ai
 
-from Python.constants import CELL_SIZE
+from Python.constants.constants import (
+    GAME_GRID_SIZE,
+    MAX_STEPS_PER_EPISODE,
+    REWARD_DEATH,
+    REWARD_FOOD_EATEN,
+    REWARD_NEUTRAL,
+    REWARD_RED_APPLE_EATEN,
+    STATE_SIZE,
+)
 from Python.display import Display
+from Python.display.plotter import Plotter
 
 from ..snake_game import Direction, SnakeGame
+from .dqn import DQNAgent
 
 
 class Learn2Slither:
-    DEFAULTS = {
-        "sessions": 10,
-        "save_path": "",
-        "load_path": "",
-        "learn": True,
-        "human_speed": False,
-        "pve": False,
-        "grid_size": CELL_SIZE,
-        "visuals": True,
-        "difficulty": None,
-    }
-
-    DIFFICULTY = {
-        "easy": "/home/luis/proyects/Learn2Slither/src/models/pve/easy.txt",
-        "normal": "/home/luis/proyects/Learn2Slither/src/models/pve/normal.txt",
-        "hard": "/home/luis/proyects/Learn2Slither/src/models/pve/hard.txt",
-    }
-
     def __init__(self, args: Namespace):
-        config = {**self.DEFAULTS, **vars(args)}
-        self.sessions: int = config["sessions"]
+        self.sessions: int = args.sessions
         if self.sessions < 1:
             raise ValueError("Number of sessions must be at least 1.")
         # TODO check valid paths
-        self.save_path: str = config["save_path"]
-        self.load_path: str = config["load_path"]
+        self.save_path: str = args.save_path or ""
+        self.load_path: str = args.load_path or ""
 
-        self.learn: bool = config["learn"]
-        self.human_speed: bool = config["human_speed"]
-        self.pve: bool = config["pve"]
-        self.grid_size: int = config["grid_size"]
-        self.difficulty: str = config["difficulty"].lower()
+        self.learn: bool = args.learn
+        self.human_speed: bool = args.human_speed
+        self.pve: bool = args.pve
+        self.grid_size: int = args.grid_size
 
         # Initialize main game, when in PVE mode we main game will be used
         # by the player and secondary game will be used by the AI
         # When NOT in pve mode, then it's only the AI that will use it.
         self.main_game = SnakeGame(width=self.grid_size, height=self.grid_size)
-        self.visuals: bool = config["visuals"]
+        self.visuals: bool = args.visuals
         self.display: Display = None
-        self.cell_size: int = CELL_SIZE
+        self.GAME_GRID_SIZE: int = GAME_GRID_SIZE
         self.offset_x: int = 0
         self.offset_y: int = 0
-        self.cell_size_left: int = CELL_SIZE
+        self.GAME_GRID_SIZE_left: int = GAME_GRID_SIZE
         self.offset_x_left: int = 0
         self.offset_y_left: int = 0
-        self.cell_size_right: int = CELL_SIZE
+        self.GAME_GRID_SIZE_right: int = GAME_GRID_SIZE
         self.offset_x_right: int = 0
         self.offset_y_right: int = 0
         self.clock_tick: int = 100
@@ -69,59 +59,71 @@ class Learn2Slither:
         if self.visuals:
             self.display = Display.get_instance()
             self.display.init_game(self)
+        # Initialize live plotter (always on to observe progress)
+        self.plotter = Plotter(title="Snake DQN Progress")
 
         self.dx, self.dy = 0.0, 0.0
-        snake_ai.init(
-            alpha=0.01,
-            gamma=0.95,
-            epsilon=0.99,
-            epsilon_min=0.1,
-            epsilon_decay=0.995,
-        )
+        # Movement tracking for features
 
+        self.last_heading = self.main_game.get_heading()
+        # Apple memory (relative direction last seen)
+        self.mem_green_dirs: set[str] = set()
+        self.mem_red_dir: str | None = None
+        self.episode_age = 0
+
+        # Initialize DQN agent
+        self.agent = DQNAgent()
         if self.save_path:
             save_dir = os.path.dirname(os.path.abspath(self.save_path))
             if not os.path.isdir(save_dir):
                 raise ValueError(f"Save path directory does not exist: {save_dir}")
-        if self.difficulty in self.DIFFICULTY and not self.load_path:
-            self.load_path = self.DIFFICULTY[self.difficulty]
         if self.load_path:
             if not os.path.isfile(os.path.abspath(self.load_path)):
                 raise ValueError(f"Load path is not a file: {self.load_path}")
             self._load_contents()
 
     def _save_contents(self):
-        content = snake_ai.get_q_table()
+        """Save the trained DQN agent model to disk.
 
-        with open(self.save_path, "w", encoding="utf-8") as f:
-            for state, v1, v2, v3 in content:
-                f.write(f"{state},{v1},{v2},{v3}\n")
+        Uses the save_path specified in __init__.
+        """
+        self.agent.save(self.save_path)
+        print(f"Neural network model saved to {self.save_path}")
 
     def _load_contents(self):
-        data = []
-        with open(self.load_path, "r", encoding="utf-8") as f:
-            for line in f:
-                state, v1, v2, v3 = line.strip().split(",")
-                data.append((int(state), float(v1), float(v2), float(v3)))
-        snake_ai.load_q_table(data)
+        """Load a trained DQN agent model from disk.
 
-    ###############
-    # RUN METHODS #
-    ###############
+        Uses the load_path specified in __init__.
+        """
+        self.agent.load(self.load_path)
+        print(f"Neural network model loaded from {self.load_path}")
 
     def run(self):
+        """Start the training or gameplay loop.
+
+        Dispatches to either AI-only training or PvE mode based on configuration.
+        """
         if not self.pve:
             self._run_only_ai()
         else:
             self._run_pve()
 
     def _stop_pygame(self):
+        """Clean up pygame and save model if specified.
+
+        Called at the end of training/gameplay to ensure proper cleanup.
+        """
         if self.save_path:
             self._save_contents()
         if self.visuals:
             self.display.quit()
 
     def _run_pve(self):
+        """Run Player vs Environment (human vs AI) mode.
+
+        Runs the game loop with both human player and AI agent.
+        Human controls secondary_game, AI controls main_game.
+        """
         game_over = False
         reset = False
         user_game = self.secondary_game
@@ -140,14 +142,22 @@ class Learn2Slither:
                 self.display.render_game()
         self._stop_pygame()
 
-    ################
-    # USER METHODS #
-    ################
+    def _play_game_user(self, game: SnakeGame):
+        """Handle user input and execute one step of the user-controlled game.
 
-    def _play_game_user(
-        self,
-        game: SnakeGame,
-    ):
+        Processes keyboard events (arrow keys to move, R to reset, Q to quit).
+        Returns game_over and reset flags.
+
+        Parameters
+        ----------
+        game : SnakeGame
+            The game instance controlled by the user.
+
+        Returns
+        -------
+        tuple
+            (game_over, reset) - whether game ended or reset was requested
+        """
         game_over = False
         reset = False
         direction_map = {
@@ -168,232 +178,321 @@ class Learn2Slither:
                 elif event.key == pygame.K_q:
                     game_over = True
 
-        # Move snake
         game.step()
 
         return (game_over or game.get_game_over()), reset
 
-    ####################
-    # AI LOGIC METHODS #
-    ####################
-
     def _play_move_ai(self, game: SnakeGame):
+        """Execute one step of the AI-controlled game.
+
+        Gets the next move from the agent and executes it.
+
+        Parameters
+        ----------
+        game : SnakeGame
+            The game instance controlled by the AI.
+
+        Returns
+        -------
+        bool
+            Whether the game ended.
+        """
         self._set_next_move_ai(game)
         game.step()
 
         return game.get_game_over()
 
-    def _learn(
-        self,
-        prev_state,
-        action,
-        decay,
-        reward,
-        s_next,
-    ):
-        # Implement learning logic here
+    def _get_reward(self, prev_len, done):
+        """Centralized reward calculation - event based only."""
+        if done:
+            reward = REWARD_DEATH
+        else:
+            new_len = self.main_game.get_snake_len()
 
-        snake_ai.learn(
-            prev_state,
-            action,
-            reward,
-            decay,
-            s_next,
+            if new_len < prev_len:
+                reward = REWARD_RED_APPLE_EATEN
+            elif new_len > prev_len:
+                reward = REWARD_FOOD_EATEN
+            else:
+                reward = REWARD_NEUTRAL
+        return reward
+
+    def _get_next_action(self, game):
+        """Get the next action from the agent.
+
+        Parameters
+        ----------
+        game : SnakeGame
+            The game instance.
+
+        Returns
+        -------
+        tuple
+            (state_features, action_idx, direction)
+        """
+        heading = game.get_heading()
+        state = self.agent.get_state(game)
+        action_idx = self.agent.get_action(state)
+        direction = self._action_idx_to_direction(heading, action_idx)
+        return state, action_idx, direction
+
+    def _process_step_training(
+        self,
+        prev_features,
+        action_idx,
+        reward,
+        new_features,
+        done,
+        prev_len,
+        new_length,
+    ):
+        """Process training for a single step (short memory).
+
+        Stores experience in memory and trains on it immediately (short-term learning).
+        Updates state references for the next iteration if episode continues.
+
+        Parameters
+        ----------
+        prev_features : np.ndarray
+            State features before action.
+        action_idx : int
+            Action taken.
+        reward : float
+            Reward received.
+        new_features : np.ndarray
+            State features after action.
+        done : bool
+            Whether episode ended.
+        prev_len : int
+            Previous snake length.
+        new_length : int
+            Current snake length.
+
+        Returns
+        -------
+        tuple
+            (updated_prev_features, updated_prev_len)
+        """
+        self.agent.remember(prev_features, action_idx, reward, new_features, done)
+        self.agent.train_short_memory(
+            prev_features, action_idx, reward, new_features, done
         )
 
-    def find_green_apple(self, prev_view, head_x, head_y):
-        """Return the coordinates of the first green apple seen, or None."""
-        h, w = len(prev_view), len(prev_view[0])
-        directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+        if not done:
+            return new_features, new_length
+        return prev_features, prev_len
 
-        for dx, dy in directions:
-            x, y = head_x, head_y
-            while 0 <= x < h and 0 <= y < w:
-                cell = prev_view[x][y]
-                if cell not in [" ", "."]:
-                    if cell == "G":
-                        return (x, y)
-                    break
-                x += dx
-                y += dy
+    def _handle_episode_completion(self, current_run, max_snake_len, number_of_steps):
+        """Handle episode completion: logging, reset, and long memory training.
 
-        return None
+        Parameters
+        ----------
+        current_run : int
+            Current session number (1-indexed).
+        max_snake_len : int
+            Maximum snake length achieved in episode.
+        number_of_steps : int
+            Total steps taken across all episodes.
+        """
+        self.agent.n_games += 1
 
-    def calculate_based_on_move_to_apple(self, prev_view, prev_head_x, prev_head_y):
-        apple_pos_prev = self.find_green_apple(prev_view, prev_head_x, prev_head_y)
-        reward = 0.0
-        if apple_pos_prev is not None:
-            head_x, head_y = self.main_game.get_snake_head()
-            prev_distance = abs(prev_head_x - apple_pos_prev[0]) + abs(
-                prev_head_y - apple_pos_prev[1]
+        self.main_game.reset()
+        self.last_heading = self.main_game.get_heading()
+        self.mem_green_dirs = set()
+        self.mem_red_dir = None
+
+        if self.learn:
+            self.agent.train_long_memory()
+
+        print(f"Session {current_run}/{self.sessions} completed.")
+        print(f"Epsilon: {self.agent.epsilon:.4f}")
+        print(f"Loss: {self.agent.last_loss:.4f}")
+        print(f"Learning Rate: {self.agent.current_lr:.6f}")
+        print(f"Number of steps: {number_of_steps}")
+        print(f"Max snake length: {max_snake_len}")
+        if self.learn:
+            print(f"Memory size: {len(self.agent.memory)}")
+        try:
+            self.plotter.update(
+                max_snake_len,
+                number_of_steps,
+                self.agent.last_loss,
+                self.agent.current_lr,
             )
-            new_distance = abs(head_x - apple_pos_prev[0]) + abs(
-                head_y - apple_pos_prev[1]
-            )
+        except Exception:
+            pass
 
-            if new_distance < prev_distance:
-                reward += 0.1
-            elif new_distance > prev_distance:
-                reward -= 0.02
-        return reward
+    def _render_if_needed(self):
+        """Render game and handle display timing if enabled."""
+        if self.visuals:
+            self.main_game.render_terminal()
+            self.display.render_game()
+        if self.human_speed:
+            self.display.tick()
 
-    def _get_reward(self, prev_len, done, prev_head_x, prev_head_y, prev_view):
-        # Base reward for surviving, negative to avoid stalling
+    def _get_new_state(self, done):
+        """Get the new state after taking a step.
 
-        if done:
-            reward = -1.0
+        If the episode is not done, retrieves the actual new state from the game.
+        If done, returns a zero state (terminal state).
+
+        Parameters
+        ----------
+        done : bool
+            Whether the episode ended.
+
+        Returns
+        -------
+        tuple
+            (new_features, new_length, new_heading)
+        """
+        if not done:
+            new_length = self.main_game.get_snake_len()
+            new_features = self.agent.get_state(self.main_game)
         else:
-            # Change in snake length
-            snake_len = self.main_game.get_snake_len()
-            delta_len = snake_len - prev_len
-            moved_to_apple = self.calculate_based_on_move_to_apple(
-                prev_view, prev_head_x, prev_head_y
-            )
-            if delta_len > 0:
-                # Reward grows with snake length
-                reward = 0.75
-            elif delta_len < 0:
-                # Penalty smaller if snake is big, bigger if small
-                reward = -0.40
-            elif moved_to_apple != 0.0:
-                reward = moved_to_apple
-            else:
-                reward = -0.1
-        # Keep it within -1.0 and 1.0
-        reward = max(-1.0, min(1.0, reward))
+            new_length = self.main_game.get_snake_len()
+            new_features = np.zeros(STATE_SIZE, dtype=np.float32)
 
-        return reward
+        return new_features, new_length
+
+    def _train_step(
+        self, prev_features, action_idx, done, prev_len, current_steps, max_steps
+    ):
+        """Execute a single training step.
+
+        Handles reward calculation, state retrieval, short-term training,
+        and timeout checking.
+
+        Parameters
+        ----------
+        prev_features : np.ndarray
+            Previous state features.
+        action_idx : int
+            Action taken.
+        done : bool
+            Whether episode ended.
+        prev_len : int
+            Previous snake length.
+        current_steps : int
+            Current step count in episode.
+        max_steps : int
+            Maximum steps allowed per episode.
+
+        Returns
+        -------
+        tuple
+            (updated_prev_features, updated_prev_len, new_current_steps, should_end_episode)
+        """
+        current_steps += 1
+        self.episode_age += 1
+        reward = self._get_reward(prev_len, done)
+        new_features, new_length = self._get_new_state(done)
+        prev_features, prev_len = self._process_step_training(
+            prev_features, action_idx, reward, new_features, done, prev_len, new_length
+        )
+        should_end = current_steps >= max_steps
+        return prev_features, prev_len, current_steps, should_end
 
     def _run_only_ai(self):
+        """Run AI-only training loop.
+
+        Main training loop that runs the agent for multiple sessions,
+        with optional learning, visualization, and performance tracking.
+        """
         current_run = 0
         number_of_steps = 0
         max_snake_len = 0
-        max_steps = 1000
+        max_steps = MAX_STEPS_PER_EPISODE
         current_steps = 0
-        decay = True
-        seen_states = set()
 
         while current_run < self.sessions:
-            # Get previous state information before AI moves
-            if self.learn:
-                prev_view = self.main_game.get_snake_view()
-                prev_heading = self.main_game.get_heading()
-                prev_snake_head = self.main_game.get_snake_head()
-                prev_len = self.main_game.get_snake_len()
-                prev_head_x, prev_head_y = self.main_game.get_snake_head()
-                prev_state = snake_ai.get_state(
-                    prev_view, prev_heading, prev_snake_head
-                )
-                if current_run > (self.sessions // 4):
-                    decay = True
-                seen_states.add(
-                    prev_state.value()
-                )  # if State has .value() returning u64
-                # print(f"Unique states so far: {len(seen_states)}")
-                current_steps += 1
+            pygame.event.get()  # Prevent window from becoming unresponsive
+            self.main_game.get_snake_view()
+            prev_len = self.main_game.get_snake_len()
 
-            # Set next move for the AI in the game
-            action = self._set_next_move_ai(self.main_game)
-
-            # Run the next move
+            prev_features, action_idx, direction = self._get_next_action(self.main_game)
+            self.main_game.set_direction(direction)
             self.main_game.step()
 
             done = self.main_game.get_game_over()
-
-            max_snake_len = max(max_snake_len, self.main_game.get_snake_len())
+            current_len = self.main_game.get_snake_len()
+            max_snake_len = max(max_snake_len, current_len)
 
             if self.learn:
-                reward = self._get_reward(
-                    prev_len, done, prev_head_x, prev_head_y, prev_view
-                )
-                new_view = self.main_game.get_snake_view() if not done else None
-                new_heading = self.main_game.get_heading() if not done else None
-                new_snake_head = self.main_game.get_snake_head() if not done else None
-                new_state = (
-                    snake_ai.get_state(new_view, new_heading, new_snake_head)
-                    if not done
-                    else None
+                prev_features, prev_len, current_steps, should_end = self._train_step(
+                    prev_features, action_idx, done, prev_len, current_steps, max_steps
                 )
 
-                self._learn(
-                    prev_state=prev_state,
-                    action=action,
-                    reward=reward,
-                    s_next=new_state,
-                    decay=decay,
-                )
-                if current_steps >= max_steps:
+                if should_end:
                     self.main_game.game_over = True
-            if self.visuals:
-                self.main_game.render_terminal()
-                self.display.render_game()
-            if self.human_speed:
-                self.display.tick()
+
+            self._render_if_needed()
             number_of_steps += 1
+
             if self.main_game.game_over:
                 current_run += 1
-                self.main_game.reset()
-                print(f"Session {current_run}/{self.sessions} completed.")
-                print("Number of states:", snake_ai.get_numstates())
-                print("Number of steps:", number_of_steps)
-                print("Max snake length:", max_snake_len)
+                self._handle_episode_completion(
+                    current_run, max_snake_len, number_of_steps
+                )
+                self.episode_age = 0
                 max_snake_len = 0
                 number_of_steps = 0
                 current_steps = 0
 
         self._stop_pygame()
 
-    def _get_direction_ai(self, state, heading):
-        self.dx, self.dy = snake_ai.act(state, heading)
-        for d in Direction:
-            if d.value == (self.dx, self.dy):
-                direction = d
-                break
+    def _action_idx_to_direction(self, heading, action_idx):
+        """Convert agent action index to game direction relative to current heading.
 
-        action = snake_ai.get_action(heading, (self.dx, self.dy))
-        return direction, action
+        Maps action indices to directions relative to the snake's current heading:
+        - Action 0: move straight (forward)
+        - Action 1: turn left
+        - Action 2: turn right
 
-    def _predict_next_head(self, game, direction):
-        return game.get_new_head(direction)
+        Parameters
+        ----------
+        heading : tuple
+            Current direction vector (dx, dy).
+        action_idx : int
+            Action index (0, 1, or 2).
 
-    def _would_collide(self, game, head):
-        return game.would_colide(head)
+        Returns
+        -------
+        Direction
+            The absolute direction to move.
+        """
+        clock = [Direction.RIGHT, Direction.DOWN, Direction.LEFT, Direction.UP]
+        heading_to_idx = {d.value: i for i, d in enumerate(clock)}
+        current = heading_to_idx.get(heading, 0)
+        straight = clock[current]
+        left = clock[(current - 1) % 4]
+        right = clock[(current + 1) % 4]
+
+        if action_idx == 0:
+            return straight
+        if action_idx == 1:
+            return left
+        return right
 
     def _set_next_move_ai(self, game):
-        snake_view = game.get_snake_view()
+        """Get the AI's next move and set it on the game.
+
+        Retrieves state, gets action from agent, converts to direction, and sets it.
+
+        Parameters
+        ----------
+        game : SnakeGame
+            The game instance to set the direction on.
+
+        Returns
+        -------
+        int
+            The action index chosen by the agent.
+        """
+        features = self.agent.get_state(game)
         heading = game.get_heading()
-        snake_head = game.get_snake_head()
-        prev_state = snake_ai.get_state(snake_view, heading, snake_head)
 
-        tried_actions = set()
-        last_action = None
-
-        while len(tried_actions) < 3:
-            direction, action = self._get_direction_ai(prev_state, heading)
-            last_action = action
-
-            if action in tried_actions:
-                # Already tested this action
-                continue
-
-            # Predict if this action will immediately die
-            next_head = self._predict_next_head(game, direction)
-            if self._would_collide(game, next_head):
-                # Learn negative reward
-                self._learn(
-                    prev_state=prev_state,
-                    action=action,
-                    reward=-1.0,
-                    s_next=None,
-                    decay=False,
-                )
-                tried_actions.add(action)
-                continue
-            else:
-                # Safe action found
-                game.set_direction(direction)
-                return action
-
-        # All actions kill: just pick the last one
+        action_idx = self.agent.get_action(features)
+        direction = self._action_idx_to_direction(heading, action_idx)
         game.set_direction(direction)
-        return last_action
+        return action_idx
