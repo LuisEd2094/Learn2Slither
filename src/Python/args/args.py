@@ -1,5 +1,11 @@
 import argparse
 
+from Python.constants.constants import (
+    DEFAULT_LOAD_PATH,
+    DEFAULT_SAVE_PATH,
+    GAME_GRID_SIZE,
+)
+
 
 def str2bool(v):
     if isinstance(v, bool):
@@ -23,16 +29,8 @@ def get_args():
         nargs="?",
         const=True,
         default=True,
-        help="Whether to show the menu. Defaults to False.",
+        help="Whether to show the menu. Defaults to True.",
     )
-    parser.add_argument(
-        "--difficulty",
-        type=str,
-        choices=["easy", "normal", "hard"],
-        default="normal",
-        help="Difficulty level. Choices are: easy, normal, hard. Defaults to normal.",
-    )
-
     parser.add_argument(
         "--sessions",
         type=int,
@@ -45,18 +43,16 @@ def get_args():
         "--save-path",
         type=str,
         required=False,
-        default=None,
-        help="Path to the file where the Q-table will be saved,\
-                defaults to None",
+        default=DEFAULT_SAVE_PATH,
+        help=f"Path to save the neural network model. Defaults to {DEFAULT_SAVE_PATH}.",
     )
 
     parser.add_argument(
         "--load-path",
         type=str,
         required=False,
-        default=None,
-        help="Path to the file where the Q-table will be loaded from, \
-              defaults to None",
+        default=DEFAULT_LOAD_PATH,
+        help="Path to load the neural network model from. Defaults to None.",
     )
 
     parser.add_argument(
@@ -74,8 +70,8 @@ def get_args():
         type=str2bool,
         nargs="?",
         const=True,
-        default=False,
-        help="Whether to enable human speed mode. (true/false)",
+        default=True,
+        help="Whether to enable human speed mode. Defaults to True.",
     )
 
     parser.add_argument(
@@ -83,15 +79,15 @@ def get_args():
         type=str2bool,
         nargs="?",
         const=True,
-        default=False,
-        help="Whether to enable visualizations. Defaults to False.",
+        default=True,
+        help="Whether to enable visualizations. Defaults to True.",
     )
 
     parser.add_argument(
         "--grid-size",
         type=int,
-        default=10,
-        help="Size of the grid. Defaults to 10.",
+        default=GAME_GRID_SIZE,
+        help=f"Size of the grid. Defaults to {GAME_GRID_SIZE}.",
     )
 
     parser.add_argument(
