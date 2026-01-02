@@ -1,3 +1,14 @@
+# Display Settings
+
+SCREEN_WIDTH = 1600
+SCREEN_HEIGHT = 900
+SCREEN_OFFSET_Y = 100
+SCREEN_OFFSET_X = 100
+PVE_OFFSET_X = 50
+SPRITE_SIZE = 32
+
+GAME_GRID_SIZE = 10
+
 GAME_SPEED = 10
 
 DARK_GREEN = [(0, 128, 0), (50, 205, 50), (144, 238, 144)]
@@ -26,7 +37,6 @@ FONT = "/home/luis/proyects/Learn2Slither/assets/fonts/PressStart2P-Regular.ttf"
 
 
 # Game Configuration
-GAME_GRID_SIZE = 10
 MAX_STEPS_PER_EPISODE = 1000
 
 # Model Paths

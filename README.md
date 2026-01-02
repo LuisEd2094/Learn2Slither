@@ -5,6 +5,8 @@
 
 https://cnl26.itch.io/lorenzos-snake-game-assets
 
+https://opengameart.org/content/snake-sprites-2d
+
 https://fonts.google.com/specimen/Press+Start+2P
 
 https://www.youtube.com/watch?v=t3fbETsIBCY&list=PLQVvvaa0QuDezJFIOU5wDdfy4e9vdnx-7&index=5

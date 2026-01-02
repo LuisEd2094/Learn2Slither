@@ -89,6 +89,41 @@ This step is required if:
 
 ## Code Quality & Validation
 
+### Code Documentation Standards
+
+**Method Documentation Requirements:**
+- Every method must have a docstring explaining its purpose, arguments, return values, and exceptions
+- Every public method (without `_` prefix) is part of the public API and must be clearly documented
+- Every private method (with `_` prefix) must also have a docstring for internal clarity
+
+**Comment Guidelines:**
+- **NO inline comments inside method bodies** - Comments should never explain what code does line-by-line
+- If a section of code requires explanation, extract it into a separate auxiliary method with a clear name and docstring
+- Method names should be self-documenting (e.g., `_calculate_layout_dimensions()` instead of needing comments to explain calculations)
+- Docstrings are the only acceptable form of documentation; they explain the "why" and "how" of the method
+
+**Example - Wrong:**
+```python
+def process_data(self, data):
+    # Convert data to uppercase
+    result = data.upper()
+    # Add prefix to result
+    result = "PREFIX_" + result
+    return result
+```
+
+**Example - Correct:**
+```python
+def _normalize_data_with_prefix(self, data):
+    """Convert data to uppercase and add prefix."""
+    result = data.upper()
+    return "PREFIX_" + result
+
+def process_data(self, data):
+    """Process input data with normalization."""
+    return self._normalize_data_with_prefix(data)
+```
+
 ### Linting with Flake8
 
 ```bash
