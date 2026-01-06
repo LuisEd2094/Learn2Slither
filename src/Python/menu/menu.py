@@ -27,7 +27,15 @@ class Menu:
             "load_path": DEFAULT_LOAD_PATH,
         }
 
-        self.items = list(self.options.keys())
+        self.items = [
+            "sessions",
+            "learn",
+            "human_speed",
+            "visuals",
+            "pve",
+            "grid_size",
+            "difficulty",
+        ]
         self.items.append("START")
         self.selected_index = 0
         self.running = True
