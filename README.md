@@ -5,7 +5,12 @@
 
 https://cnl26.itch.io/lorenzos-snake-game-assets
 
+https://opengameart.org/content/snake-sprites-2d
+
+https://www.freepik.com/free-photo/abstract-textured-backgound_12073215.htm#fromView=keyword&page=1&position=20&uuid=600aa73e-8fa1-44f5-b760-8c33acbcc5d9&query=Simple+green+background
+
 https://fonts.google.com/specimen/Press+Start+2P
+
 
 https://www.youtube.com/watch?v=t3fbETsIBCY&list=PLQVvvaa0QuDezJFIOU5wDdfy4e9vdnx-7&index=5
 

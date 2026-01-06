@@ -1,4 +1,16 @@
+# Display Settings
+
+SCREEN_WIDTH = 1600
+SCREEN_HEIGHT = 900
+SCREEN_OFFSET_Y = 100
+SCREEN_OFFSET_X = 100
+PVE_OFFSET_X = 50
+SPRITE_SIZE = 32
+
+GAME_GRID_SIZE = 10
+
 GAME_SPEED = 10
+DRAW_GRID = False
 
 DARK_GREEN = [(0, 128, 0), (50, 205, 50), (144, 238, 144)]
 LIGHT_GREEN = [(200, 255, 200), (180, 230, 180)]
@@ -19,14 +31,81 @@ BLACK_WHITE = [(0, 0, 0), (255, 255, 255)]
 
 
 BACKGROUND_TILE = (
-    "/home/luis/proyects/Learn2Slither/assets/images/background/flowers.png"
+    "/home/luis/proyects/Learn2Slither/assets/images/background/background.jpg"
 )
 
 FONT = "/home/luis/proyects/Learn2Slither/assets/fonts/PressStart2P-Regular.ttf"
 
+FOOD_SPRITE_PATH = "/home/luis/proyects/Learn2Slither/assets/images/food/red_apple.png"
+BAD_FOOD_SPRITE_PATH = "/home/luis/proyects/Learn2Slither/assets/images/food/bomb.png"
+
+SNAKE_BODY_HORIZONTAL_00 = (
+    "/home/luis/proyects/Learn2Slither/assets/images/body/snake_body32_horizontal00.png"
+)
+SNAKE_BODY_HORIZONTAL_01 = (
+    "/home/luis/proyects/Learn2Slither/assets/images/body/snake_body32_horizontal01.png"
+)
+SNAKE_BODY_VERTICAL_00 = (
+    "/home/luis/proyects/Learn2Slither/assets/images/body/snake_body32_vertical00.png"
+)
+SNAKE_BODY_VERTICAL_01 = (
+    "/home/luis/proyects/Learn2Slither/assets/images/body/snake_body32_vertical01.png"
+)
+SNAKE_BODY_LEFT_CONNECTOR = (
+    "/home/luis/proyects/Learn2Slither/assets/images/body/snake_body_corner_00.png"
+)
+SNAKE_BODY_RIGHT_CONNECTOR = (
+    "/home/luis/proyects/Learn2Slither/assets/images/body/snake_body_corner_01.png"
+)
+SNAKE_BODY_CORNER_02 = (
+    "/home/luis/proyects/Learn2Slither/assets/images/body/snake_body_corner_02.png"
+)
+SNAKE_BODY_CORNER_03 = (
+    "/home/luis/proyects/Learn2Slither/assets/images/body/snake_body_corner_03.png"
+)
+SNAKE_HEAD_00 = "/home/luis/proyects/Learn2Slither/assets/images/head/snake00.png"
+SNAKE_HEAD_01 = "/home/luis/proyects/Learn2Slither/assets/images/head/snake01.png"
+SNAKE_TAIL_00 = "/home/luis/proyects/Learn2Slither/assets/images/tail/tail_final00.png"
+SNAKE_TAIL_01 = "/home/luis/proyects/Learn2Slither/assets/images/tail/tail_final01.png"
+SNAKE_TAIL_02 = "/home/luis/proyects/Learn2Slither/assets/images/tail/tail_final02.png"
+SNAKE_TAIL_03 = "/home/luis/proyects/Learn2Slither/assets/images/tail/tail_final03.png"
+SNAKE_TAIL_04 = "/home/luis/proyects/Learn2Slither/assets/images/tail/tail_final04.png"
+
+# Wall Sprites
+WALL_CORNER = (
+    "/home/luis/proyects/Learn2Slither/assets/images/background/walls/corner.png"
+)
+WALL_CENTER_HORI = (
+    "/home/luis/proyects/Learn2Slither/assets/images/background/walls/center_hori.png"
+)
+WALL_CENTER_VER = (
+    "/home/luis/proyects/Learn2Slither/assets/images/background/walls/center_ver.png"
+)
+WALL_LEFT_END = (
+    "/home/luis/proyects/Learn2Slither/assets/images/background/walls/left_end.png"
+)
+WALL_RIGHT_END = (
+    "/home/luis/proyects/Learn2Slither/assets/images/background/walls/right_end.png"
+)
+WALL_TOP_END = (
+    "/home/luis/proyects/Learn2Slither/assets/images/background/walls/top_end.png"
+)
+WALL_BOT_END = (
+    "/home/luis/proyects/Learn2Slither/assets/images/background/walls/bot_end.png"
+)
+
+# Ground Tiles
+GROUND_GRASS_BLUR = (
+    "/home/luis/proyects/Learn2Slither/assets/images/background/grass_blur.png"
+)
+GROUND_GRASS_BLUR2 = (
+    "/home/luis/proyects/Learn2Slither/assets/images/background/grass_blur2.png"
+)
+GROUND_SNOW_MIDDLE = (
+    "/home/luis/proyects/Learn2Slither/assets/images/background/snow_middle.png"
+)
 
 # Game Configuration
-GAME_GRID_SIZE = 10
 MAX_STEPS_PER_EPISODE = 1000
 
 # Model Paths
